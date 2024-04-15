@@ -1,8 +1,10 @@
 {
   "required": true,
-  "package": "com.example.addon.mixin",
+  "package": "com.example.addon.mixins",
   "compatibilityLevel": "JAVA_17",
-  "client": [],
+  "client": [
+    "BlockUtilsMixin",
+    "ClientPlayerInteractionManagerMixin"],
   "injectors": {
     "defaultRequire": 1
   }
