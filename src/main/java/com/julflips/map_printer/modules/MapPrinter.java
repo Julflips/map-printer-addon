@@ -1,7 +1,7 @@
-package com.example.addon.modules;
+package com.julflips.map_printer.modules;
 
-import com.example.addon.Addon;
-import com.example.addon.Utils.Utils;
+import com.julflips.map_printer.Addon;
+import com.julflips.map_printer.utils.Utils;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
@@ -47,7 +47,7 @@ public class MapPrinter extends Module {
     private final Setting<Integer> linesPerRun = sgGeneral.add(new IntSetting.Builder()
         .name("lines-per-run")
         .description("How many lines to place in parallel per run.")
-        .defaultValue(1)
+        .defaultValue(2)
         .min(1)
         .sliderRange(1, 5)
         .build()
