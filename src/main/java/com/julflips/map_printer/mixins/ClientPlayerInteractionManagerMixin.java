@@ -1,6 +1,6 @@
-package com.example.addon.mixins;
+package com.julflips.map_printer.mixins;
 
-import com.example.addon.mixininterfaces.IClientPlayerInteractionManager;
+import com.julflips.map_printer.mixininterfaces.IClientPlayerInteractionManager;
 import net.minecraft.client.network.ClientPlayerInteractionManager;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.screen.slot.SlotActionType;

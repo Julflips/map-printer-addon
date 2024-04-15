@@ -1,24 +1,24 @@
 {
   "schemaVersion": 1,
-  "id": "addon-template",
+  "id": "map-printer",
   "version": "${version}",
-  "name": "Addon Template",
-  "description": "An addon template for the Meteor addons.",
+  "name": "Map Printer",
+  "description": "Automatically builds 2D maps from nbt files.",
   "authors": [
-    "seasnail"
+    "Julflips"
   ],
   "contact": {
-    "repo": "https://github.com/MeteorDevelopment/meteor-addon-template"
+    "repo": "https://github.com/Julflips/map-printer-addon"
   },
   "icon": "assets/template/icon.png",
   "environment": "client",
   "entrypoints": {
     "meteor": [
-      "com.example.addon.Addon"
+      "com.julflips.map_printer.Addon"
     ]
   },
   "mixins": [
-    "addon-template.mixins.json"
+    "map-printer.mixins.json"
   ],
   "custom": {
     "meteor-client:color": "225,25,25"

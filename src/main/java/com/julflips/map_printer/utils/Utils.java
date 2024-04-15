@@ -1,4 +1,4 @@
-package com.example.addon.Utils;
+package com.julflips.map_printer.utils;
 
 import meteordevelopment.meteorclient.events.game.GameLeftEvent;
 import meteordevelopment.meteorclient.events.packets.PacketEvent;
@@ -11,7 +11,7 @@ import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
 import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
 import net.minecraft.screen.slot.SlotActionType;
-import com.example.addon.mixininterfaces.IClientPlayerInteractionManager;
+import com.julflips.map_printer.mixininterfaces.IClientPlayerInteractionManager;
 import net.minecraft.util.Pair;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
