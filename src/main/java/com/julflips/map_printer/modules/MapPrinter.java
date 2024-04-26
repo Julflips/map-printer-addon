@@ -281,7 +281,7 @@ public class MapPrinter extends Module {
             return;
         }
         state = "SelectingCorner";
-        info("Select §aTop Left Corner (North West -X, -Z) of the map building area (128x128)");
+        info("Select the §aMap Building Area (128x128)");
     }
 
     private int stacksRequired(HashMap<Block, Integer> requiredItems) {
@@ -390,18 +390,21 @@ public class MapPrinter extends Module {
         return needsDump;
     }
 
+    private int getIntervalStart(int pos) {
+        info("Factor: " + Math.floor((float) (pos + 64) / 128f));
+        return (int) Math.floor((float) (pos + 64) / 128f) * 128 - 64;
+    }
+
     @EventHandler
     private void onSendPacket(PacketEvent.Send event) {
         if (state == null) return;
         if (state.equals("SelectingCorner") && event.packet instanceof PlayerInteractBlockC2SPacket packet) {
-            mapCorner = packet.getBlockHitResult().getBlockPos().up();
-            if ((mapCorner.getX()) % 16 != 0 || (mapCorner.getZ()) % 16 != 0) {
-                info("Invalid Corner selected. Make sure to hit the Corner of of the North West (-X, -Z) chunk.");
-                mapCorner = null;
-                return;
-            }
+            BlockPos hitPos = packet.getBlockHitResult().getBlockPos().up();
+            int adjustedX = getIntervalStart(hitPos.getX());
+            int adjustedZ = getIntervalStart(hitPos.getZ());
+            mapCorner = new BlockPos(adjustedX, hitPos.getY(), adjustedZ);
             state = "SelectingReset";
-            info("Corner selected. Press the §aReset Button §7used to remove the carpets");
+            info("Map Area selected. Press the §aReset Button §7used to remove the carpets");
             return;
         }
 
