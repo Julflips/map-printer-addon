@@ -988,7 +988,8 @@ public class MapPrinter extends Module {
     private boolean loadNBTFiles(File mapFile) {
         info("Building: §a" + mapFile.getName());
         try {
-            NbtCompound nbt = NbtIo.readCompressed(mapFile);
+            NbtSizeTracker sizeTracker = new NbtSizeTracker(0x20000000L, 100);
+            NbtCompound nbt = NbtIo.readCompressed(mapFile.toPath(), sizeTracker);
             //Extracting the palette
             NbtList paletteList  = (NbtList) nbt.get("palette");
             carpetDict = new HashMap<>();
