@@ -34,10 +34,7 @@ import net.minecraft.util.math.Vec3d;
 import org.apache.commons.lang3.tuple.Triple;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class MapPrinter extends Module {
@@ -207,7 +204,6 @@ public class MapPrinter extends Module {
 
     int timeoutTicks;
     int placeDelayticks;
-    boolean hasRestocked;
     boolean newMap;
     boolean closeNextInvPacket;
     String state;
@@ -225,6 +221,7 @@ public class MapPrinter extends Module {
     ArrayList<Integer> availableSlots;
     ArrayList<Integer> availableHotBarSlots;
     ArrayList<Triple<BlockPos, Vec3d, Integer>> restockList;       //ChestPos, OpenPos, Amount
+    ArrayList<BlockPos> checkedChests;
     ArrayList<Vec3d> checkpoints;
     ArrayList<File> startedFiles;
     ArrayList<ClickSlotC2SPacket> invActionPackets;
@@ -242,6 +239,7 @@ public class MapPrinter extends Module {
         availableSlots = new ArrayList<>();
         availableHotBarSlots = new ArrayList<>();
         restockList = new ArrayList<>();
+        checkedChests = new ArrayList<>();
         checkpoints = new ArrayList<>();
         startedFiles = new ArrayList<>();
         invActionPackets = new ArrayList<>();
@@ -253,7 +251,6 @@ public class MapPrinter extends Module {
         dumpChests = new ArrayList<>();
         toBeHandledInvPacket = null;
         closeNextInvPacket = false;
-        hasRestocked = false;
         newMap = false;
         currentDumpChest = null;
         timeoutTicks = 0;
@@ -285,6 +282,7 @@ public class MapPrinter extends Module {
     }
 
     private int stacksRequired(HashMap<Block, Integer> requiredItems) {
+        //Calculates how many slots are required for the dictionary {Block: Amount}
         int stacks = 0;
         for (int amount: requiredItems.values()) {
             if (amount == 0) continue;
@@ -294,11 +292,13 @@ public class MapPrinter extends Module {
     }
 
     private HashMap<Block, Integer> getRequiredItems() {
+        //Calculate the next items to restock
         HashMap<Block, Integer> requiredItems = new HashMap<>();
         for (Pair<Block, Integer> p : carpetDict.values()) {
             requiredItems.put(p.getLeft(), 0);
         }
 
+        //Iterate over map. Player has to be able to see the complete map area
         boolean isStartSide = true;
         for (int x = 0; x <= 128-linesPerRun.get(); x += linesPerRun.get()) {
             for (int z = 0; z < 128; z++) {
@@ -310,8 +310,8 @@ public class MapPrinter extends Module {
                     if (!(cureentBlock instanceof CarpetBlock)) {
                         Block material = map[x+lineBonus][adjustedZ];
                         requiredItems.put(material, requiredItems.get(material) + 1);
+                        //Check if the item fits into inventory. If not, undo the last increment and return
                         if (stacksRequired(requiredItems) > availableSlots.size()) {
-                            //Undo the last increment
                             requiredItems.put(material, requiredItems.get(material) - 1);
                             return requiredItems;
                         }
@@ -324,6 +324,7 @@ public class MapPrinter extends Module {
     }
 
     private void refillInventory() {
+        //Fills restockList with required items
         HashMap<Block, Integer> requiredItems = getRequiredItems();
 
         for (Block block: requiredItems.keySet()) {
@@ -341,6 +342,8 @@ public class MapPrinter extends Module {
     }
 
     private void calculateBuildingPath() {
+        //Iterate over map and skip completed lines. Player has to be able to see the complete map area
+        //Fills checkpoints list
         boolean isStartSide = true;
         checkpoints.clear();
         for (int i = 0; i < 128; i+=linesPerRun.get()) {
@@ -369,6 +372,8 @@ public class MapPrinter extends Module {
     }
 
     private boolean analyzeInventory() {
+        //Check what slots are free to use for building
+        //If any carpets are in inventory, return true to dump them
         boolean needsDump = false;
         for (int i = 0; i < 36; i++) {
             Block material = Registries.BLOCK.get(new Identifier(mc.player.getInventory().getStack(i).getItem().toString()));
@@ -388,11 +393,6 @@ public class MapPrinter extends Module {
         info("Inventory slots available for building: " + availableSlots);
 
         return needsDump;
-    }
-
-    private int getIntervalStart(int pos) {
-        info("Factor: " + Math.floor((float) (pos + 64) / 128f));
-        return (int) Math.floor((float) (pos + 64) / 128f) * 128 - 64;
     }
 
     @EventHandler
@@ -542,14 +542,12 @@ public class MapPrinter extends Module {
         closeNextInvPacket = true;
         //info("Handling Inventory Packet");
         if (state.equals("AwaitRestockResponse")) {
-            boolean foundMaterials = false;
             for (int i = 0; i < packet.getContents().size()-36; i++) {
                 ItemStack stack = packet.getContents().get(i);
 
                 if (restockList.get(0).getRight() == 0) break;
                 if (!stack.isEmpty() && stack.getCount() == 64) {
                     //info("Taking Stack of " + restockList.get(0).getLeft().getName().getString());
-                    foundMaterials = true;
                     int highestFreeSlot = Utils.findHighestFreeSlot(packet);
                     if (highestFreeSlot == -1) {
                         info("No free slots found in inventory.");
@@ -560,11 +558,6 @@ public class MapPrinter extends Module {
                     Triple<BlockPos, Vec3d, Integer> oldTriple = restockList.remove(0);
                     restockList.add(0, Triple.of(oldTriple.getLeft(), oldTriple.getMiddle(), oldTriple.getRight() - 1));
                 }
-            }
-            if (!foundMaterials) {
-                warning("No materials found in chest. Please restock the chest.");
-                toggle();
-                return;
             }
             if (invActionDelay.get() == 0) {
                 for (ClickSlotC2SPacket p: invActionPackets) {
@@ -885,10 +878,6 @@ public class MapPrinter extends Module {
             if (restockList.size() > 0) return;
             if (currentDumpChest != null) return;
             if (mc.player.isSprinting()) mc.player.setSprinting(false);
-            if (mc.currentScreen != null && hasRestocked) {
-                hasRestocked = false;
-                mc.player.closeHandledScreen();
-            }
             if (placeDelayticks > 0) {
                 placeDelayticks--;
                 return;
@@ -948,9 +937,15 @@ public class MapPrinter extends Module {
     }
 
     private void endRestocking() {
+        if (restockList.get(0).getRight() > 0) {
+            warning("Not all necessary stacks restocked. Searching for another chest...");
+            //Search for the next best chest
+            checkedChests.add(restockList.get(0).getLeft());
+            Pair<BlockPos, Vec3d> bestRestockPos = getBestChest(getMaterialFromPos(restockList.get(0).getLeft()));
+            restockList.add(1, Triple.of(bestRestockPos.getLeft(), bestRestockPos.getRight(), restockList.get(0).getRight()));
+        }
         restockList.remove(0);
         timeoutTicks = postRestockDelay.get();
-        hasRestocked = true;
         state = "Walking";
     }
 
@@ -965,17 +960,41 @@ public class MapPrinter extends Module {
         } else if (materialDict.containsKey(material)) {
             list =  materialDict.get(material);
         }
+        //Get nearest chest
         for (Pair<BlockPos, Vec3d> p : list) {
+            //Skip chests that have already been checked
+            if (checkedChests.contains(p.getLeft())) continue;
             if (bestPos == null || PlayerUtils.distanceTo(p.getRight()) < PlayerUtils.distanceTo(bestPos)) {
                 bestPos = p.getRight();
                 bestChestPos = p.getLeft();
             }
         }
+        if (bestPos == null || bestChestPos == null) {
+            warning("All chests are been checked. Choosing a random one...");
+            Random random = new Random();
+            return list.get(random.nextInt(list.size()));
+        }
         return new Pair(bestChestPos, bestPos);
     }
 
     private boolean isWithingMap(BlockPos pos) {
-        return pos.getX() >= mapCorner.getX() && pos.getX() < mapCorner.getX() + 128 && pos.getZ() >= mapCorner.getZ() && pos.getZ() < mapCorner.getZ() + 128;
+        return getIntervalStart(pos.getX()) == mapCorner.getX() && getIntervalStart(pos.getZ()) == mapCorner.getZ();
+    }
+
+    private int getIntervalStart(int pos) {
+        //Get top left corner of the map area for one dimension
+        return (int) Math.floor((float) (pos + 64) / 128f) * 128 - 64;
+    }
+
+    private Block getMaterialFromPos(BlockPos pos) {
+        for (Block material : materialDict.keySet()) {
+            for (Pair<BlockPos, Vec3d> p : materialDict.get(material)) {
+                if (p.getLeft().equals(pos)) return material;
+            }
+        }
+        warning("Could not find material for chest position : " + pos.toShortString());
+        toggle();
+        return null;
     }
 
     private File getNextMapFile() {
