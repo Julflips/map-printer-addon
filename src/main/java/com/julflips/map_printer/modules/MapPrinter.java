@@ -943,6 +943,8 @@ public class MapPrinter extends Module {
             checkedChests.add(restockList.get(0).getLeft());
             Pair<BlockPos, Vec3d> bestRestockPos = getBestChest(getMaterialFromPos(restockList.get(0).getLeft()));
             restockList.add(1, Triple.of(bestRestockPos.getLeft(), bestRestockPos.getRight(), restockList.get(0).getRight()));
+        } else {
+            checkedChests = new ArrayList<>();
         }
         restockList.remove(0);
         timeoutTicks = postRestockDelay.get();
