@@ -207,7 +207,6 @@ public class MapPrinter extends Module {
 
     int timeoutTicks;
     int placeDelayticks;
-    boolean hasRestocked;
     boolean newMap;
     boolean closeNextInvPacket;
     String state;
@@ -253,7 +252,6 @@ public class MapPrinter extends Module {
         dumpChests = new ArrayList<>();
         toBeHandledInvPacket = null;
         closeNextInvPacket = false;
-        hasRestocked = false;
         newMap = false;
         currentDumpChest = null;
         timeoutTicks = 0;
@@ -397,96 +395,89 @@ public class MapPrinter extends Module {
 
     @EventHandler
     private void onSendPacket(PacketEvent.Send event) {
-        if (state == null) return;
-        if (state.equals("SelectingCorner") && event.packet instanceof PlayerInteractBlockC2SPacket packet) {
-            BlockPos hitPos = packet.getBlockHitResult().getBlockPos().up();
-            int adjustedX = getIntervalStart(hitPos.getX());
-            int adjustedZ = getIntervalStart(hitPos.getZ());
-            mapCorner = new BlockPos(adjustedX, hitPos.getY(), adjustedZ);
-            state = "SelectingReset";
-            info("Map Area selected. Press the §aReset Button §7used to remove the carpets");
-            return;
-        }
-
-        if (state.equals("SelectingReset") && event.packet instanceof PlayerInteractBlockC2SPacket packet) {
-            BlockPos blockPos = packet.getBlockHitResult().getBlockPos();
-            if (mc.world.getBlockState(blockPos).getBlock() instanceof ButtonBlock) {
-                reset = new Pair<>(packet.getBlockHitResult(), mc.player.getPos());
-                info("Reset Button selected. Select the §aCartography Table.");
-                state = "SelectingTable";
-                return;
-            }
-        }
-
-        if (state.equals("SelectingTable") && event.packet instanceof PlayerInteractBlockC2SPacket packet) {
-            BlockPos blockPos = packet.getBlockHitResult().getBlockPos();
-            if (mc.world.getBlockState(blockPos).getBlock().equals(Blocks.CARTOGRAPHY_TABLE)) {
-                cartographyTable = new Pair<>(packet.getBlockHitResult(), mc.player.getPos());
-                info("Cartography Table selected. Select the §aFinished Map Chest.");
-                state = "SelectingFinishedMapChest";
-                return;
-            }
-        }
-
-        if (state.equals("SelectingFinishedMapChest") && event.packet instanceof PlayerInteractBlockC2SPacket packet) {
-            BlockPos blockPos = packet.getBlockHitResult().getBlockPos();
-            if (mc.world.getBlockState(blockPos).getBlock() instanceof AbstractChestBlock) {
-                finishedMapChest = new Pair<>(packet.getBlockHitResult(), mc.player.getPos());
-                info("Finished Map Chest selected. Select all §aMaterial-, Map- and Dump-Chests.");
-                state = "SelectingChests";
-                return;
-            }
-        }
-
-        if (state.equals("SelectingChests") && event.packet instanceof PlayerInteractBlockC2SPacket packet) {
-            BlockPos blockPos = packet.getBlockHitResult().getBlockPos();
-            if (blockPos.up().equals(mapCorner)) {
-                if (materialDict.size() == 0) {
-                    warning("No Material Chests selected!");
-                    return;
+        if (!(event.packet instanceof PlayerInteractBlockC2SPacket packet)) return;
+        switch (state) {
+            case "SelectingCorner":
+                BlockPos hitPos = packet.getBlockHitResult().getBlockPos().up();
+                int adjustedX = getIntervalStart(hitPos.getX());
+                int adjustedZ = getIntervalStart(hitPos.getZ());
+                mapCorner = new BlockPos(adjustedX, hitPos.getY(), adjustedZ);
+                state = "SelectingReset";
+                info("Map Area selected. Press the §aReset Button §7used to remove the carpets");
+                break;
+            case "SelectingReset":
+                BlockPos blockPos = packet.getBlockHitResult().getBlockPos();
+                if (mc.world.getBlockState(blockPos).getBlock() instanceof ButtonBlock) {
+                    reset = new Pair<>(packet.getBlockHitResult(), mc.player.getPos());
+                    info("Reset Button selected. Select the §aCartography Table.");
+                    state = "SelectingTable";
                 }
-                if (dumpChests.size() == 0) {
-                    warning("No Dump Chests selected!");
-                    return;
+                break;
+            case "SelectingTable":
+                blockPos = packet.getBlockHitResult().getBlockPos();
+                if (mc.world.getBlockState(blockPos).getBlock().equals(Blocks.CARTOGRAPHY_TABLE)) {
+                    cartographyTable = new Pair<>(packet.getBlockHitResult(), mc.player.getPos());
+                    info("Cartography Table selected. Select the §aFinished Map Chest.");
+                    state = "SelectingFinishedMapChest";
                 }
-                if (mapMaterialChests.size() == 0) {
-                    warning("No Map Chests selected!");
-                    return;
+                break;
+            case "SelectingFinishedMapChest":
+                blockPos = packet.getBlockHitResult().getBlockPos();
+                if (mc.world.getBlockState(blockPos).getBlock() instanceof AbstractChestBlock) {
+                    finishedMapChest = new Pair<>(packet.getBlockHitResult(), mc.player.getPos());
+                    info("Finished Map Chest selected. Select all §aMaterial-, Map- and Dump-Chests.");
+                    state = "SelectingChests";
                 }
-                setWPressed(true);
-                calculateBuildingPath();
-                if (analyzeInventory()) {
-                    Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
-                    checkpoints.add(0, bestChest.getRight());
-                    currentDumpChest = bestChest.getLeft();
-                } else {
-                    refillInventory();
+                break;
+            case "SelectingChests":
+                blockPos = packet.getBlockHitResult().getBlockPos();
+                if (blockPos.up().equals(mapCorner)) {
+                    //Check if requirements to start building are met
+                    if (materialDict.size() == 0) {
+                        warning("No Material Chests selected!");
+                        return;
+                    }
+                    if (dumpChests.size() == 0) {
+                        warning("No Dump Chests selected!");
+                        return;
+                    }
+                    if (mapMaterialChests.size() == 0) {
+                        warning("No Map Chests selected!");
+                        return;
+                    }
+                    setWPressed(true);
+                    calculateBuildingPath();
+                    if (analyzeInventory()) {
+                        Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
+                        checkpoints.add(0, bestChest.getRight());
+                        currentDumpChest = bestChest.getLeft();
+                    } else {
+                        refillInventory();
+                    }
+                    if (availableHotBarSlots.size() == 0) {
+                        warning("No free slots found in hot-bar!");
+                        toggle();
+                        return;
+                    }
+                    if (availableSlots.size() < 2) {
+                        warning("You need at least 2 free inventory slots!");
+                        toggle();
+                        return;
+                    }
+                    state = "Walking";
                 }
-                if (availableHotBarSlots.size() == 0) {
-                    warning("No free slots found in hot-bar!");
-                    toggle();
-                    return;
+                if (mc.world.getBlockState(blockPos).getBlock().equals(Blocks.CHEST)) {
+                    tempChestPos = blockPos;
+                    state = "AwaitContent";
                 }
-                if (availableSlots.size() < 2) {
-                    warning("You need at least 2 free inventory slots!");
-                    toggle();
-                    return;
-                }
-                state = "Walking";
-            }
-            if (mc.world.getBlockState(blockPos).getBlock().equals(Blocks.CHEST)) {
-                //info("Chest selected: " + pos);
-                tempChestPos = blockPos;
-                state = "AwaitContent";
-                return;
-            }
+                break;
         }
     }
 
     @EventHandler
     private void onReceivePacket(PacketEvent.Receive event) {
-        if (state == null) return;
-        if (state.equals("AwaitContent") && event.packet instanceof InventoryS2CPacket packet) {
+        if (!(event.packet instanceof InventoryS2CPacket packet)) return;
+        if (state.equals("AwaitContent")) {
             //info("Chest content received.");
             Item foundItem = null;
             boolean isMixedContent = false;
@@ -526,7 +517,7 @@ public class MapPrinter extends Module {
         }
 
         List<String> allowedStates = Arrays.asList("AwaitRestockResponse", "AwaitDumpResponse", "AwaitMapChestResponse", "AwaitCartographyResponse", "AwaitFinishedMapChestResponse");
-        if (allowedStates.contains(state) && event.packet instanceof InventoryS2CPacket packet) {
+        if (allowedStates.contains(state)) {
             if (preRestockDelay.get() == 0) {
                 handleInventoryPacket(packet);
             } else {
@@ -540,154 +531,147 @@ public class MapPrinter extends Module {
 
     private void handleInventoryPacket(InventoryS2CPacket packet) {
         closeNextInvPacket = true;
-        //info("Handling Inventory Packet");
-        if (state.equals("AwaitRestockResponse")) {
-            boolean foundMaterials = false;
-            for (int i = 0; i < packet.getContents().size()-36; i++) {
-                ItemStack stack = packet.getContents().get(i);
+        switch (state) {
+            case "AwaitRestockResponse":
+                boolean foundMaterials = false;
+                for (int i = 0; i < packet.getContents().size()-36; i++) {
+                    ItemStack stack = packet.getContents().get(i);
 
-                if (restockList.get(0).getRight() == 0) break;
-                if (!stack.isEmpty() && stack.getCount() == 64) {
-                    //info("Taking Stack of " + restockList.get(0).getLeft().getName().getString());
-                    foundMaterials = true;
-                    int highestFreeSlot = Utils.findHighestFreeSlot(packet);
-                    if (highestFreeSlot == -1) {
-                        info("No free slots found in inventory.");
-                        endRestocking();
-                        return;
+                    if (restockList.get(0).getRight() == 0) break;
+                    if (!stack.isEmpty() && stack.getCount() == 64) {
+                        //info("Taking Stack of " + restockList.get(0).getLeft().getName().getString());
+                        foundMaterials = true;
+                        int highestFreeSlot = Utils.findHighestFreeSlot(packet);
+                        if (highestFreeSlot == -1) {
+                            info("No free slots found in inventory.");
+                            endRestocking();
+                            return;
+                        }
+                        invActionPackets.add(new ClickSlotC2SPacket(packet.getSyncId(), 1, i, 1, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
+                        Triple<BlockPos, Vec3d, Integer> oldTriple = restockList.remove(0);
+                        restockList.add(0, Triple.of(oldTriple.getLeft(), oldTriple.getMiddle(), oldTriple.getRight() - 1));
                     }
-                    invActionPackets.add(new ClickSlotC2SPacket(packet.getSyncId(), 1, i, 1, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
-                    Triple<BlockPos, Vec3d, Integer> oldTriple = restockList.remove(0);
-                    restockList.add(0, Triple.of(oldTriple.getLeft(), oldTriple.getMiddle(), oldTriple.getRight() - 1));
                 }
-            }
-            if (!foundMaterials) {
-                warning("No materials found in chest. Please restock the chest.");
-                toggle();
-                return;
-            }
-            if (invActionDelay.get() == 0) {
-                for (ClickSlotC2SPacket p: invActionPackets) {
-                    mc.getNetworkHandler().sendPacket(p);
+                if (!foundMaterials) {
+                    warning("No materials found in chest. Please restock the chest.");
+                    toggle();
+                    return;
                 }
-                invActionPackets.clear();
-                endRestocking();
-            } else {
-                timeoutTicks = invActionDelay.get();
-            }
-            return;
-        }
-
-        if (state.equals("AwaitDumpResponse")) {
-            for (int slot : availableSlots) {
-                //info("Initial slot: " + slot);
-                //Slot adjustment because slot IDs are different when opening a container
-                if (slot < 9) {
-                    slot += 27;
+                if (invActionDelay.get() == 0) {
+                    for (ClickSlotC2SPacket p: invActionPackets) {
+                        mc.getNetworkHandler().sendPacket(p);
+                    }
+                    invActionPackets.clear();
+                    endRestocking();
                 } else {
-                    slot -= 9;
+                    timeoutTicks = invActionDelay.get();
                 }
-                slot = packet.getContents().size() - 36 + slot;
-                //info("Try to dump slot: " + slot);
+                break;
+            case "AwaitDumpResponse":
+                for (int slot : availableSlots) {
+                    //info("Initial slot: " + slot);
+                    //Slot adjustment because slot IDs are different when opening a container
+                    if (slot < 9) {
+                        slot += 27;
+                    } else {
+                        slot -= 9;
+                    }
+                    slot = packet.getContents().size() - 36 + slot;
+                    //info("Try to dump slot: " + slot);
 
-                ItemStack stack = packet.getContents().get(slot);
-                if (!stack.isEmpty()) {
-                    //info("Dumped slot " + slot + ": " + stack.getName().getString());
-                    invActionPackets.add(new ClickSlotC2SPacket(packet.getSyncId(), 1, slot, 1, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
+                    ItemStack stack = packet.getContents().get(slot);
+                    if (!stack.isEmpty()) {
+                        //info("Dumped slot " + slot + ": " + stack.getName().getString());
+                        invActionPackets.add(new ClickSlotC2SPacket(packet.getSyncId(), 1, slot, 1, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
+                    }
                 }
-            }
 
-            if (invActionPackets.isEmpty()) {
-                if (checkpointAction != "mapMaterialChest") refillInventory();  //Only refill if not finished building the map
-                state = "Walking";
+                if (invActionPackets.isEmpty()) {
+                    if (checkpointAction != "mapMaterialChest") refillInventory();  //Only refill if not finished building the map
+                    state = "Walking";
+                    timeoutTicks = postRestockDelay.get();
+                    break;
+                }
+
+                if (invActionDelay.get() == 0) {
+                    for (ClickSlotC2SPacket p: invActionPackets) {
+                        mc.getNetworkHandler().sendPacket(p);
+                    }
+                    invActionPackets.clear();
+                    if (checkpointAction != "mapMaterialChest") refillInventory();  //Only refill if not finished building the map
+                    state = "Walking";
+                    timeoutTicks = postRestockDelay.get();
+                }
+                break;
+            case "AwaitMapChestResponse":
                 timeoutTicks = postRestockDelay.get();
-                return;
-            }
-
-            if (invActionDelay.get() == 0) {
-                for (ClickSlotC2SPacket p: invActionPackets) {
-                    mc.getNetworkHandler().sendPacket(p);
+                //Search for map and glass pane
+                for (int slot = 0; slot < packet.getContents().size()-36; slot++) {
+                    ItemStack stack = packet.getContents().get(slot);
+                    if (stack.getItem() == Items.MAP) {
+                        getOneItem(slot, false, packet);
+                        break;
+                    }
                 }
-                invActionPackets.clear();
-                if (checkpointAction != "mapMaterialChest") refillInventory();  //Only refill if not finished building the map
+                //Has to be done after map switch to have map at selected slot
+                for (int slot = 0; slot < packet.getContents().size()-36; slot++) {
+                    ItemStack stack = packet.getContents().get(slot);
+                    if (stack.getItem() == Items.GLASS_PANE) {
+                        getOneItem(slot, true, packet);
+                        break;
+                    }
+                }
+                mc.player.getInventory().selectedSlot = availableSlots.get(0);
+                checkpointAction = "fillMap";
+                Vec3d center = mapCorner.add(map.length/2 - 1, 0, map[0].length/2 - 1).toCenterPos();
+                checkpoints.add(center);
                 state = "Walking";
+                break;
+            case "AwaitCartographyResponse":
                 timeoutTicks = postRestockDelay.get();
-            }
-            return;
-        }
-
-        timeoutTicks = postRestockDelay.get();
-
-        if (state.equals("AwaitMapChestResponse")) {
-            //get map
-            for (int slot = 0; slot < packet.getContents().size()-36; slot++) {
-                ItemStack stack = packet.getContents().get(slot);
-                if (stack.getItem() == Items.MAP) {
-                    getOneItem(slot, false, packet);
-                    break;
+                boolean searchingMap = true;
+                for (int slot : availableSlots) {
+                    if (slot < 9) {  //Stupid slot correction
+                        slot += 30;
+                    } else {
+                        slot -= 6;
+                    }
+                    ItemStack stack = packet.getContents().get(slot);
+                    if (searchingMap && stack.getItem() == Items.FILLED_MAP) {
+                        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, slot, 0, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
+                        searchingMap = false;
+                    }
                 }
-            }
-            for (int slot = 0; slot < packet.getContents().size()-36; slot++) {
-                ItemStack stack = packet.getContents().get(slot);
-                if (stack.getItem() == Items.GLASS_PANE) {
-                    getOneItem(slot, true, packet);
-                    break;
+                for (int slot : availableSlots) {
+                    if (slot < 9) {  //Stupid slot correction
+                        slot += 30;
+                    } else {
+                        slot -= 6;
+                    }
+                    ItemStack stack = packet.getContents().get(slot);
+                    if (!searchingMap && stack.getItem() == Items.GLASS_PANE) {
+                        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, slot, 0, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
+                        break;
+                    }
                 }
-            }
-            mc.player.getInventory().selectedSlot = availableSlots.get(0);
-            checkpointAction = "fillMap";
-            Vec3d center = mapCorner.add(map.length/2 - 1, 0, map[0].length/2 - 1).toCenterPos();
-            checkpoints.add(center);
-            state = "Walking";
-            return;
-        }
-
-        if (state.equals("AwaitCartographyResponse")) {
-            boolean searchingMap = true;
-            for (int slot : availableSlots) {
-                if (slot < 9) {  //Stupid slot correction
-                    slot += 30;
-                } else {
-                    slot -= 6;
+                mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, 2, 0, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
+                checkpoints.add(finishedMapChest.getRight());
+                checkpointAction = "finishedMapChest";
+                state = "Walking";
+                break;
+            case "AwaitFinishedMapChestResponse":
+                timeoutTicks = postRestockDelay.get();
+                for (int slot = packet.getContents().size()-36; slot < packet.getContents().size(); slot++) {
+                    ItemStack stack = packet.getContents().get(slot);
+                    if (stack.getItem() == Items.FILLED_MAP) {
+                        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, slot, 0, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
+                        break;
+                    }
                 }
-                ItemStack stack = packet.getContents().get(slot);
-                if (searchingMap && stack.getItem() == Items.FILLED_MAP) {
-                    mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, slot, 0, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
-                    searchingMap = false;
-                    continue;
-                }
-            }
-            for (int slot : availableSlots) {
-                if (slot < 9) {  //Stupid slot correction
-                    slot += 30;
-                } else {
-                    slot -= 6;
-                }
-                ItemStack stack = packet.getContents().get(slot);
-                if (!searchingMap && stack.getItem() == Items.GLASS_PANE) {
-                    mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, slot, 0, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
-                    break;
-                }
-            }
-            mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, 2, 0, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
-            checkpoints.add(finishedMapChest.getRight());
-            checkpointAction = "finishedMapChest";
-            state = "Walking";
-            return;
-        }
-
-        if (state.equals("AwaitFinishedMapChestResponse")) {
-            for (int slot = packet.getContents().size()-36; slot < packet.getContents().size(); slot++) {
-                ItemStack stack = packet.getContents().get(slot);
-                if (stack.getItem() == Items.FILLED_MAP) {
-                    mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, slot, 0, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
-                    break;
-                }
-            }
-            checkpoints.add(reset.getRight());
-            checkpointAction = "reset";
-            state = "Walking";
-            return;
+                checkpoints.add(reset.getRight());
+                checkpointAction = "reset";
+                state = "Walking";
+                break;
         }
     }
 
@@ -885,10 +869,6 @@ public class MapPrinter extends Module {
             if (restockList.size() > 0) return;
             if (currentDumpChest != null) return;
             if (mc.player.isSprinting()) mc.player.setSprinting(false);
-            if (mc.currentScreen != null && hasRestocked) {
-                hasRestocked = false;
-                mc.player.closeHandledScreen();
-            }
             if (placeDelayticks > 0) {
                 placeDelayticks--;
                 return;
@@ -950,7 +930,6 @@ public class MapPrinter extends Module {
     private void endRestocking() {
         restockList.remove(0);
         timeoutTicks = postRestockDelay.get();
-        hasRestocked = true;
         state = "Walking";
     }
 
@@ -1066,48 +1045,33 @@ public class MapPrinter extends Module {
         if(mapCorner == null || !render.get()) return;
         event.renderer.box(mapCorner, color.get(), color.get(), ShapeMode.Lines, 0);
         event.renderer.box(mapCorner.getX(), mapCorner.getY(), mapCorner.getZ(), mapCorner.getX()+128, mapCorner.getY(), mapCorner.getZ()+128, color.get(), color.get(), ShapeMode.Lines, 0);
+
         if (renderChestPositions.get()) {
+            ArrayList<Pair<BlockPos, Vec3d>> renderedPairs = new ArrayList<>();
             for (ArrayList<Pair<BlockPos, Vec3d>> list: materialDict.values()) {
-                for (Pair<BlockPos, Vec3d> p : list) {
-                    event.renderer.box(p.getLeft(), color.get(), color.get(), ShapeMode.Lines, 0);
-                }
+                renderedPairs.addAll(list);
             }
-            for (Pair<BlockPos, Vec3d> chest: mapMaterialChests) {
-                event.renderer.box(chest.getLeft(), color.get(), color.get(), ShapeMode.Lines, 0);
+            renderedPairs.addAll(mapMaterialChests);
+            renderedPairs.addAll(dumpChests);
+            for (Pair<BlockPos, Vec3d> pair: renderedPairs) {
+                event.renderer.box(pair.getLeft(), color.get(), color.get(), ShapeMode.Lines, 0);
+                Vec3d openPos = pair.getRight();
+                event.renderer.box(openPos.x-indicatorSize.get(), openPos.y-indicatorSize.get(), openPos.z-indicatorSize.get(), openPos.x+indicatorSize.get(), openPos.y+indicatorSize.get(), openPos.z+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
-            for (Pair<BlockPos, Vec3d> chest: dumpChests) {
-                event.renderer.box(chest.getLeft(), color.get(), color.get(), ShapeMode.Lines, 0);
-            }
-        }
-        if (renderOpenPositions.get()) {
-            for (ArrayList<Pair<BlockPos, Vec3d>> list: materialDict.values()) {
-                for (Pair<BlockPos, Vec3d> p : list) {
-                    event.renderer.box(p.getRight().x-indicatorSize.get(), p.getRight().y-indicatorSize.get(), p.getRight().z-indicatorSize.get(), p.getRight().getX()+indicatorSize.get(), p.getRight().getY()+indicatorSize.get(), p.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
-                }
-            }
-            for (Pair<BlockPos, Vec3d> chest: mapMaterialChests) {
-                event.renderer.box(chest.getRight().x-indicatorSize.get(), chest.getRight().y-indicatorSize.get(), chest.getRight().z-indicatorSize.get(), chest.getRight().getX()+indicatorSize.get(), chest.getRight().getY()+indicatorSize.get(), chest.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
-            }
-            for (Pair<BlockPos, Vec3d> chest: dumpChests) {
-                event.renderer.box(chest.getRight().x-indicatorSize.get(), chest.getRight().y-indicatorSize.get(), chest.getRight().z-indicatorSize.get(), chest.getRight().getX()+indicatorSize.get(), chest.getRight().getY()+indicatorSize.get(), chest.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
-            }
-        }
-        if (renderCheckpoints.get()) {
             for (Vec3d cp: checkpoints) {
                 event.renderer.box(cp.x-indicatorSize.get(), cp.y-indicatorSize.get(), cp.z-indicatorSize.get(), cp.getX()+indicatorSize.get(), cp.getY()+indicatorSize.get(), cp.getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
         }
+
         if (renderSpecialInteractions.get()) {
             if (reset != null) {
                 event.renderer.box(reset.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines, 0);
                 event.renderer.box(reset.getRight().x-indicatorSize.get(), reset.getRight().y-indicatorSize.get(), reset.getRight().z-indicatorSize.get(), reset.getRight().getX()+indicatorSize.get(), reset.getRight().getY()+indicatorSize.get(), reset.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
-
             if (cartographyTable != null) {
                 event.renderer.box(cartographyTable.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines, 0);
                 event.renderer.box(cartographyTable.getRight().x-indicatorSize.get(), cartographyTable.getRight().y-indicatorSize.get(), cartographyTable.getRight().z-indicatorSize.get(), cartographyTable.getRight().getX()+indicatorSize.get(), cartographyTable.getRight().getY()+indicatorSize.get(), cartographyTable.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
-
             if (finishedMapChest != null) {
                 event.renderer.box(finishedMapChest.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines, 0);
                 event.renderer.box(finishedMapChest.getRight().x-indicatorSize.get(), finishedMapChest.getRight().y-indicatorSize.get(), finishedMapChest.getRight().z-indicatorSize.get(), finishedMapChest.getRight().getX()+indicatorSize.get(), finishedMapChest.getRight().getY()+indicatorSize.get(), finishedMapChest.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
