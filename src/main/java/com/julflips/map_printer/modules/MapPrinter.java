@@ -34,10 +34,7 @@ import net.minecraft.util.math.Vec3d;
 import org.apache.commons.lang3.tuple.Triple;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class MapPrinter extends Module {
@@ -135,6 +132,15 @@ public class MapPrinter extends Module {
         .build()
     );
 
+    private final Setting<Integer> retryInteractTimer = sgGeneral.add(new IntSetting.Builder()
+        .name("retry-interact-timer")
+        .description("How many ticks to wait for chest response before interacting with it again.")
+        .defaultValue(100)
+        .min(1)
+        .sliderRange(20, 200)
+        .build()
+    );
+
     private final Setting<Boolean> activationReset = sgGeneral.add(new BoolSetting.Builder()
         .name("activation-reset")
         .description("Disable if the bot should continue after reconnecting to the server.")
@@ -206,6 +212,7 @@ public class MapPrinter extends Module {
     }
 
     int timeoutTicks;
+    int chestInteractTimeout;
     int placeDelayticks;
     boolean newMap;
     boolean closeNextInvPacket;
@@ -218,12 +225,14 @@ public class MapPrinter extends Module {
     ArrayList<Pair<BlockPos, Vec3d>> dumpChests;
     BlockPos mapCorner;
     BlockPos tempChestPos;
+    BlockPos lastInteractedChest;
     InventoryS2CPacket toBeHandledInvPacket;
     HashMap<Integer, Pair<Block, Integer>> carpetDict;             //Maps palette block id to the Minecraft block and amount
     HashMap<Block, ArrayList<Pair<BlockPos, Vec3d>>> materialDict; //Maps block to the chest pos and the open position
     ArrayList<Integer> availableSlots;
     ArrayList<Integer> availableHotBarSlots;
     ArrayList<Triple<BlockPos, Vec3d, Integer>> restockList;       //ChestPos, OpenPos, Amount
+    ArrayList<BlockPos> checkedChests;
     ArrayList<Vec3d> checkpoints;
     ArrayList<File> startedFiles;
     ArrayList<ClickSlotC2SPacket> invActionPackets;
@@ -241,11 +250,13 @@ public class MapPrinter extends Module {
         availableSlots = new ArrayList<>();
         availableHotBarSlots = new ArrayList<>();
         restockList = new ArrayList<>();
+        checkedChests = new ArrayList<>();
         checkpoints = new ArrayList<>();
         startedFiles = new ArrayList<>();
         invActionPackets = new ArrayList<>();
         reset = null;
         mapCorner = null;
+        lastInteractedChest = null;
         cartographyTable = null;
         finishedMapChest = null;
         mapMaterialChests = new ArrayList<>();
@@ -255,6 +266,7 @@ public class MapPrinter extends Module {
         newMap = false;
         currentDumpChest = null;
         timeoutTicks = 0;
+        chestInteractTimeout = 0;
         placeDelayticks = 0;
         mapFolder = new File(Utils.getMinecraftDirectory() + File.separator + "map-printer");
         if (!mapFolder.exists()) {
@@ -283,6 +295,7 @@ public class MapPrinter extends Module {
     }
 
     private int stacksRequired(HashMap<Block, Integer> requiredItems) {
+        //Calculates how many slots are required for the dictionary {Block: Amount}
         int stacks = 0;
         for (int amount: requiredItems.values()) {
             if (amount == 0) continue;
@@ -292,11 +305,13 @@ public class MapPrinter extends Module {
     }
 
     private HashMap<Block, Integer> getRequiredItems() {
+        //Calculate the next items to restock
         HashMap<Block, Integer> requiredItems = new HashMap<>();
         for (Pair<Block, Integer> p : carpetDict.values()) {
             requiredItems.put(p.getLeft(), 0);
         }
 
+        //Iterate over map. Player has to be able to see the complete map area
         boolean isStartSide = true;
         for (int x = 0; x <= 128-linesPerRun.get(); x += linesPerRun.get()) {
             for (int z = 0; z < 128; z++) {
@@ -308,8 +323,8 @@ public class MapPrinter extends Module {
                     if (!(cureentBlock instanceof CarpetBlock)) {
                         Block material = map[x+lineBonus][adjustedZ];
                         requiredItems.put(material, requiredItems.get(material) + 1);
+                        //Check if the item fits into inventory. If not, undo the last increment and return
                         if (stacksRequired(requiredItems) > availableSlots.size()) {
-                            //Undo the last increment
                             requiredItems.put(material, requiredItems.get(material) - 1);
                             return requiredItems;
                         }
@@ -322,6 +337,7 @@ public class MapPrinter extends Module {
     }
 
     private void refillInventory() {
+        //Fills restockList with required items
         HashMap<Block, Integer> requiredItems = getRequiredItems();
 
         for (Block block: requiredItems.keySet()) {
@@ -339,6 +355,8 @@ public class MapPrinter extends Module {
     }
 
     private void calculateBuildingPath() {
+        //Iterate over map and skip completed lines. Player has to be able to see the complete map area
+        //Fills checkpoints list
         boolean isStartSide = true;
         checkpoints.clear();
         for (int i = 0; i < 128; i+=linesPerRun.get()) {
@@ -367,6 +385,8 @@ public class MapPrinter extends Module {
     }
 
     private boolean analyzeInventory() {
+        //Check what slots are free to use for building
+        //If any carpets are in inventory, return true to dump them
         boolean needsDump = false;
         for (int i = 0; i < 36; i++) {
             Block material = Registries.BLOCK.get(new Identifier(mc.player.getInventory().getStack(i).getItem().toString()));
@@ -386,11 +406,6 @@ public class MapPrinter extends Module {
         info("Inventory slots available for building: " + availableSlots);
 
         return needsDump;
-    }
-
-    private int getIntervalStart(int pos) {
-        info("Factor: " + Math.floor((float) (pos + 64) / 128f));
-        return (int) Math.floor((float) (pos + 64) / 128f) * 128 - 64;
     }
 
     @EventHandler
@@ -531,6 +546,7 @@ public class MapPrinter extends Module {
 
     private void handleInventoryPacket(InventoryS2CPacket packet) {
         closeNextInvPacket = true;
+        chestInteractTimeout = 0;
         switch (state) {
             case "AwaitRestockResponse":
                 boolean foundMaterials = false;
@@ -698,6 +714,14 @@ public class MapPrinter extends Module {
     private void onTick(TickEvent.Pre event) {
         if (state == null) return;
 
+        if (chestInteractTimeout > 0) {
+            chestInteractTimeout--;
+            if (chestInteractTimeout == 0) {
+                info("Chest interaction timed out. Interacting again...");
+                interactWithBlock(lastInteractedChest);
+            }
+        }
+
         if (timeoutTicks > 0) {
             timeoutTicks--;
             return;
@@ -756,10 +780,7 @@ public class MapPrinter extends Module {
                 mc.player.setVelocity(0,0,0);
                 if (currentDumpChest != null) {
                     checkpoints.remove(0);
-                    mc.player.setYaw((float) Rotations.getYaw(currentDumpChest.toCenterPos()));
-                    mc.player.setPitch((float) Rotations.getPitch(currentDumpChest.toCenterPos()));
-                    BlockHitResult hitResult = new BlockHitResult(currentDumpChest.toCenterPos(), Direction.UP, currentDumpChest, false);
-                    BlockUtils.interact(hitResult, Hand.MAIN_HAND, true);
+                    interactWithBlock(currentDumpChest);
                     currentDumpChest = null;
                     state = "AwaitDumpResponse";
                     setWPressed(false);
@@ -769,10 +790,7 @@ public class MapPrinter extends Module {
                     case "mapMaterialChest":
                         checkpoints.remove(0);
                         BlockPos mapMaterialChest = getBestChest(Blocks.CARTOGRAPHY_TABLE).getLeft();
-                        mc.player.setYaw((float) Rotations.getYaw(mapMaterialChest.toCenterPos()));
-                        mc.player.setPitch((float) Rotations.getPitch(mapMaterialChest.toCenterPos()));
-                        BlockHitResult hitResult = new BlockHitResult(mapMaterialChest.toCenterPos(), Direction.UP, mapMaterialChest, false);
-                        BlockUtils.interact(hitResult, Hand.MAIN_HAND, true);
+                        interactWithBlock(mapMaterialChest);
                         checkpointAction = "";
                         state = "AwaitMapChestResponse";
                         setWPressed(false);
@@ -802,9 +820,7 @@ public class MapPrinter extends Module {
                         return;
                     case "finishedMapChest":
                         checkpoints.remove(0);
-                        mc.player.setYaw((float) Rotations.getYaw(finishedMapChest.getLeft().getBlockPos().toCenterPos()));
-                        mc.player.setPitch((float) Rotations.getPitch(finishedMapChest.getLeft().getBlockPos().toCenterPos()));
-                        BlockUtils.interact(finishedMapChest.getLeft(), Hand.MAIN_HAND, true);
+                        interactWithBlock(finishedMapChest.getLeft().getBlockPos());
                         checkpointAction = "";
                         state = "AwaitFinishedMapChestResponse";
                         setWPressed(false);
@@ -841,10 +857,7 @@ public class MapPrinter extends Module {
                 if (restockList.size() > 0) {
                     //Taking Items from Chest
                     BlockPos chestPos = restockList.get(0).getLeft();
-                    mc.player.setYaw((float) Rotations.getYaw(chestPos.toCenterPos()));
-                    mc.player.setPitch((float) Rotations.getPitch(chestPos.toCenterPos()));
-                    BlockHitResult hitResult = new BlockHitResult(chestPos.toCenterPos(), Direction.UP, chestPos, false);
-                    BlockUtils.interact(hitResult, Hand.MAIN_HAND, true);
+                    interactWithBlock(chestPos);
                     state = "AwaitRestockResponse";
                     setWPressed(false);
                     return;
@@ -928,6 +941,15 @@ public class MapPrinter extends Module {
     }
 
     private void endRestocking() {
+        if (restockList.get(0).getRight() > 0) {
+            warning("Not all necessary stacks restocked. Searching for another chest...");
+            //Search for the next best chest
+            checkedChests.add(restockList.get(0).getLeft());
+            Pair<BlockPos, Vec3d> bestRestockPos = getBestChest(getMaterialFromPos(restockList.get(0).getLeft()));
+            restockList.add(1, Triple.of(bestRestockPos.getLeft(), bestRestockPos.getRight(), restockList.get(0).getRight()));
+        } else {
+            checkedChests = new ArrayList<>();
+        }
         restockList.remove(0);
         timeoutTicks = postRestockDelay.get();
         state = "Walking";
@@ -943,18 +965,56 @@ public class MapPrinter extends Module {
             list = mapMaterialChests;
         } else if (materialDict.containsKey(material)) {
             list =  materialDict.get(material);
+        } else {
+            warning("No chest found for " + material.getName().getString());
+            toggle();
+            return new Pair<>(new BlockPos(0,0,0), new Vec3d(0,0,0));
         }
+        //Get nearest chest
         for (Pair<BlockPos, Vec3d> p : list) {
+            //Skip chests that have already been checked
+            if (checkedChests.contains(p.getLeft())) continue;
             if (bestPos == null || PlayerUtils.distanceTo(p.getRight()) < PlayerUtils.distanceTo(bestPos)) {
                 bestPos = p.getRight();
                 bestChestPos = p.getLeft();
             }
         }
+        if (bestPos == null || bestChestPos == null) {
+            warning("All chests are been checked. Choosing a random one...");
+            Random random = new Random();
+            return list.get(random.nextInt(list.size()));
+        }
         return new Pair(bestChestPos, bestPos);
     }
 
+    private void interactWithBlock(BlockPos chestPos) {
+        mc.player.setYaw((float) Rotations.getYaw(chestPos.toCenterPos()));
+        mc.player.setPitch((float) Rotations.getPitch(chestPos.toCenterPos()));
+        BlockHitResult hitResult = new BlockHitResult(chestPos.toCenterPos(), Direction.UP, chestPos, false);
+        BlockUtils.interact(hitResult, Hand.MAIN_HAND, true);
+        //Set timeout for chest interaction
+        chestInteractTimeout = retryInteractTimer.get();
+        lastInteractedChest = chestPos;
+    }
+
     private boolean isWithingMap(BlockPos pos) {
-        return pos.getX() >= mapCorner.getX() && pos.getX() < mapCorner.getX() + 128 && pos.getZ() >= mapCorner.getZ() && pos.getZ() < mapCorner.getZ() + 128;
+        return getIntervalStart(pos.getX()) == mapCorner.getX() && getIntervalStart(pos.getZ()) == mapCorner.getZ();
+    }
+
+    private int getIntervalStart(int pos) {
+        //Get top left corner of the map area for one dimension
+        return (int) Math.floor((float) (pos + 64) / 128f) * 128 - 64;
+    }
+
+    private Block getMaterialFromPos(BlockPos pos) {
+        for (Block material : materialDict.keySet()) {
+            for (Pair<BlockPos, Vec3d> p : materialDict.get(material)) {
+                if (p.getLeft().equals(pos)) return material;
+            }
+        }
+        warning("Could not find material for chest position : " + pos.toShortString());
+        toggle();
+        return null;
     }
 
     private File getNextMapFile() {
