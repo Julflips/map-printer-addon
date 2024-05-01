@@ -546,14 +546,16 @@ public class MapPrinter extends Module {
 
     private void handleInventoryPacket(InventoryS2CPacket packet) {
         closeNextInvPacket = true;
-        chestInteractTimeout = 0;
         switch (state) {
             case "AwaitRestockResponse":
                 boolean foundMaterials = false;
                 for (int i = 0; i < packet.getContents().size()-36; i++) {
                     ItemStack stack = packet.getContents().get(i);
 
-                    if (restockList.get(0).getRight() == 0) break;
+                    if (restockList.get(0).getRight() == 0) {
+                        foundMaterials = true;
+                        break;
+                    }
                     if (!stack.isEmpty() && stack.getCount() == 64) {
                         //info("Taking Stack of " + restockList.get(0).getLeft().getName().getString());
                         foundMaterials = true;
@@ -568,11 +570,8 @@ public class MapPrinter extends Module {
                         restockList.add(0, Triple.of(oldTriple.getLeft(), oldTriple.getMiddle(), oldTriple.getRight() - 1));
                     }
                 }
-                if (!foundMaterials) {
-                    warning("No materials found in chest. Please restock the chest.");
-                    toggle();
-                    return;
-                }
+                if (!foundMaterials) return;
+                chestInteractTimeout = 0;
                 if (invActionDelay.get() == 0) {
                     for (ClickSlotC2SPacket p: invActionPackets) {
                         mc.getNetworkHandler().sendPacket(p);
@@ -584,6 +583,7 @@ public class MapPrinter extends Module {
                 }
                 break;
             case "AwaitDumpResponse":
+                chestInteractTimeout = 0;
                 for (int slot : availableSlots) {
                     //info("Initial slot: " + slot);
                     //Slot adjustment because slot IDs are different when opening a container
@@ -620,6 +620,7 @@ public class MapPrinter extends Module {
                 }
                 break;
             case "AwaitMapChestResponse":
+                chestInteractTimeout = 0;
                 timeoutTicks = postRestockDelay.get();
                 //Search for map and glass pane
                 for (int slot = 0; slot < packet.getContents().size()-36; slot++) {
@@ -644,6 +645,7 @@ public class MapPrinter extends Module {
                 state = "Walking";
                 break;
             case "AwaitCartographyResponse":
+                chestInteractTimeout = 0;
                 timeoutTicks = postRestockDelay.get();
                 boolean searchingMap = true;
                 for (int slot : availableSlots) {
@@ -676,6 +678,7 @@ public class MapPrinter extends Module {
                 state = "Walking";
                 break;
             case "AwaitFinishedMapChestResponse":
+                chestInteractTimeout = 0;
                 timeoutTicks = postRestockDelay.get();
                 for (int slot = packet.getContents().size()-36; slot < packet.getContents().size(); slot++) {
                     ItemStack stack = packet.getContents().get(slot);
