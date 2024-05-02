@@ -21,6 +21,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.*;
 import net.minecraft.network.packet.c2s.play.*;
+import net.minecraft.network.packet.s2c.play.BlockUpdateS2CPacket;
 import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.screen.slot.SlotActionType;
@@ -212,9 +213,9 @@ public class MapPrinter extends Module {
     }
 
     int timeoutTicks;
-    int chestInteractTimeout;
+    int interactTimeout;
     int placeDelayticks;
-    boolean newMap;
+    boolean pressedReset;
     boolean closeNextInvPacket;
     String state;
     String checkpointAction;
@@ -263,10 +264,10 @@ public class MapPrinter extends Module {
         dumpChests = new ArrayList<>();
         toBeHandledInvPacket = null;
         closeNextInvPacket = false;
-        newMap = false;
+        pressedReset = false;
         currentDumpChest = null;
         timeoutTicks = 0;
-        chestInteractTimeout = 0;
+        interactTimeout = 0;
         placeDelayticks = 0;
         mapFolder = new File(Utils.getMinecraftDirectory() + File.separator + "map-printer");
         if (!mapFolder.exists()) {
@@ -491,6 +492,11 @@ public class MapPrinter extends Module {
 
     @EventHandler
     private void onReceivePacket(PacketEvent.Receive event) {
+        if (event.packet instanceof BlockUpdateS2CPacket packet && reset != null
+            && packet.getPos().equals(reset.getLeft().getBlockPos())) {
+            interactTimeout = 0;
+        }
+
         if (!(event.packet instanceof InventoryS2CPacket packet)) return;
         if (state.equals("AwaitContent")) {
             //info("Chest content received.");
@@ -571,7 +577,7 @@ public class MapPrinter extends Module {
                     }
                 }
                 if (!foundMaterials) return;
-                chestInteractTimeout = 0;
+                interactTimeout = 0;
                 if (invActionDelay.get() == 0) {
                     for (ClickSlotC2SPacket p: invActionPackets) {
                         mc.getNetworkHandler().sendPacket(p);
@@ -583,7 +589,7 @@ public class MapPrinter extends Module {
                 }
                 break;
             case "AwaitDumpResponse":
-                chestInteractTimeout = 0;
+                interactTimeout = 0;
                 for (int slot : availableSlots) {
                     //info("Initial slot: " + slot);
                     //Slot adjustment because slot IDs are different when opening a container
@@ -620,7 +626,7 @@ public class MapPrinter extends Module {
                 }
                 break;
             case "AwaitMapChestResponse":
-                chestInteractTimeout = 0;
+                interactTimeout = 0;
                 timeoutTicks = postRestockDelay.get();
                 //Search for map and glass pane
                 for (int slot = 0; slot < packet.getContents().size()-36; slot++) {
@@ -645,7 +651,7 @@ public class MapPrinter extends Module {
                 state = "Walking";
                 break;
             case "AwaitCartographyResponse":
-                chestInteractTimeout = 0;
+                interactTimeout = 0;
                 timeoutTicks = postRestockDelay.get();
                 boolean searchingMap = true;
                 for (int slot : availableSlots) {
@@ -678,7 +684,7 @@ public class MapPrinter extends Module {
                 state = "Walking";
                 break;
             case "AwaitFinishedMapChestResponse":
-                chestInteractTimeout = 0;
+                interactTimeout = 0;
                 timeoutTicks = postRestockDelay.get();
                 for (int slot = packet.getContents().size()-36; slot < packet.getContents().size(); slot++) {
                     ItemStack stack = packet.getContents().get(slot);
@@ -717,11 +723,18 @@ public class MapPrinter extends Module {
     private void onTick(TickEvent.Pre event) {
         if (state == null) return;
 
-        if (chestInteractTimeout > 0) {
-            chestInteractTimeout--;
-            if (chestInteractTimeout == 0) {
-                info("Chest interaction timed out. Interacting again...");
-                interactWithBlock(lastInteractedChest);
+        if (interactTimeout > 0) {
+            interactTimeout--;
+            if (interactTimeout == 0) {
+                info("Interaction timed out. Interacting again...");
+                if (pressedReset) {
+                    interactWithBlock(reset.getLeft());
+                    timeoutTicks = resetDelay.get();
+                } else if (state == "AwaitCartographyResponse") {
+                    interactWithBlock(cartographyTable.getLeft());
+                } else {
+                    interactWithBlock(lastInteractedChest);
+                }
             }
         }
 
@@ -748,8 +761,8 @@ public class MapPrinter extends Module {
             return;
         }
 
-        if (newMap) {
-            newMap = false;
+        if (pressedReset) {
+            pressedReset = false;
             calculateBuildingPath();
             Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
             currentDumpChest = bestChest.getLeft();
@@ -814,10 +827,7 @@ public class MapPrinter extends Module {
                         return;
                     case "cartographyTable":
                         checkpoints.remove(0);
-                        mc.player.setYaw((float) Rotations.getYaw(cartographyTable.getLeft().getBlockPos().toCenterPos()));
-                        mc.player.setPitch((float) Rotations.getPitch(cartographyTable.getLeft().getBlockPos().toCenterPos()));
-                        BlockUtils.interact(cartographyTable.getLeft(), Hand.MAIN_HAND, true);
-                        checkpointAction = "";
+                        interactWithBlock(cartographyTable.getLeft());
                         state = "AwaitCartographyResponse";
                         setWPressed(false);
                         return;
@@ -829,16 +839,12 @@ public class MapPrinter extends Module {
                         setWPressed(false);
                         return;
                     case "reset":
-                        info("Resetting..");
+                        info("Resetting...");
                         setWPressed(false);
                         checkpoints.remove(0);
-                        mc.player.setYaw((float) Rotations.getYaw(reset.getLeft().getBlockPos().toCenterPos()));
-                        mc.player.setPitch((float) Rotations.getPitch(reset.getLeft().getBlockPos().toCenterPos()));
-                        BlockUtils.interact(reset.getLeft(), Hand.MAIN_HAND, true);
-                        checkpointAction = "";
-                        setWPressed(false);
+                        interactWithBlock(reset.getLeft());
                         timeoutTicks = resetDelay.get();
-                        newMap = true;
+                        pressedReset = true;
                         File mapFile = getNextMapFile();
                         if (mapFile == null) {
                             info("All nbt files finished");
@@ -996,8 +1002,16 @@ public class MapPrinter extends Module {
         BlockHitResult hitResult = new BlockHitResult(chestPos.toCenterPos(), Direction.UP, chestPos, false);
         BlockUtils.interact(hitResult, Hand.MAIN_HAND, true);
         //Set timeout for chest interaction
-        chestInteractTimeout = retryInteractTimer.get();
+        interactTimeout = retryInteractTimer.get();
         lastInteractedChest = chestPos;
+    }
+
+    private void interactWithBlock(BlockHitResult hitResult) {
+        mc.player.setYaw((float) Rotations.getYaw(hitResult.getBlockPos().toCenterPos()));
+        mc.player.setPitch((float) Rotations.getPitch(hitResult.getBlockPos().toCenterPos()));
+        BlockUtils.interact(hitResult, Hand.MAIN_HAND, true);
+        checkpointAction = "";
+        interactTimeout = retryInteractTimer.get();
     }
 
     private boolean isWithingMap(BlockPos pos) {
