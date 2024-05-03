@@ -223,7 +223,7 @@ public class MapPrinter extends Module {
     int placeDelayticks;
     boolean pressedReset;
     boolean closeNextInvPacket;
-    String state = "";
+    String state;
     Pair<BlockHitResult, Vec3d> reset;
     Pair<BlockHitResult, Vec3d> cartographyTable;
     Pair<BlockHitResult, Vec3d> finishedMapChest;
@@ -414,7 +414,7 @@ public class MapPrinter extends Module {
 
     @EventHandler
     private void onSendPacket(PacketEvent.Send event) {
-        if (!(event.packet instanceof PlayerInteractBlockC2SPacket packet)) return;
+        if (!(event.packet instanceof PlayerInteractBlockC2SPacket packet) || state == null) return;
         switch (state) {
             case "SelectingCorner":
                 BlockPos hitPos = packet.getBlockHitResult().getBlockPos().up();
@@ -499,7 +499,7 @@ public class MapPrinter extends Module {
             interactTimeout = 0;
         }
 
-        if (!(event.packet instanceof InventoryS2CPacket packet)) return;
+        if (!(event.packet instanceof InventoryS2CPacket packet) || state == null) return;
         if (state.equals("AwaitContent")) {
             //info("Chest content received.");
             Item foundItem = null;
@@ -769,7 +769,7 @@ public class MapPrinter extends Module {
             Vec3d goal = checkpoints.get(0).getLeft();
             if (PlayerUtils.distanceTo(goal.add(0,mc.player.getY()-goal.y,0)) < checkpointBuffer.get()) {
                 Pair<String, BlockPos> checkpointAction = checkpoints.get(0).getRight();
-                if (debugPrints.get()) info("Reached " + checkpointAction.getLeft() + " for pos " + checkpointAction.getRight().toShortString());
+                if (debugPrints.get() && checkpointAction.getLeft() != null && checkpointAction.getRight() != null) info("Reached " + checkpointAction.getLeft() + " for pos " + checkpointAction.getRight().toShortString());
                 checkpoints.remove(0);
                 mc.player.setPosition(goal.getX(), mc.player.getY(), goal.getZ());
                 mc.player.setVelocity(0,0,0);
@@ -834,7 +834,7 @@ public class MapPrinter extends Module {
                 if (checkpoints.size() == 0) {
                     info("Finished building map");
                     Pair<BlockPos, Vec3d> bestChest = getBestChest(Blocks.CARTOGRAPHY_TABLE);
-                    checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest)));
+                    checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest.getLeft())));
 
                     bestChest = getBestChest(null);
                     checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
