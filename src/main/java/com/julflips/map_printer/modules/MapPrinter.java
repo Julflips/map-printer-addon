@@ -247,7 +247,7 @@ public class MapPrinter extends Module {
 
     @Override
     public void onActivate() {
-        if (!activationReset.get()) {
+        if (!activationReset.get() && checkpoints != null) {
             return;
         }
         materialDict = new HashMap<>();
@@ -353,7 +353,7 @@ public class MapPrinter extends Module {
             }
             int stacks = (int) Math.ceil((float) requiredItems.get(block) / 64f);
             info("Restocking §a" + stacks + " stacks " + block.getName().getString() + " (" + requiredItems.get(block) + ")");
-            restockList.add(new Pair(stacks, requiredItems.get(block)));
+            restockList.add(0, new Pair(stacks, requiredItems.get(block)));
             checkpoints.add(0, new Pair(bestRestockPos.getRight(), new Pair("refill", bestRestockPos.getLeft())));
         }
     }
