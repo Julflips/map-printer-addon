@@ -82,7 +82,7 @@ public class MapPrinter extends Module {
         .name("inventory-action-delay")
         .description("How many ticks to wait between each inventory action (moving a stack).")
         .defaultValue(2)
-        .min(0)
+        .min(1)
         .sliderRange(0, 40)
         .build()
     );
@@ -578,15 +578,7 @@ public class MapPrinter extends Module {
                 }
                 if (!foundMaterials) return;
                 interactTimeout = 0;
-                if (invActionDelay.get() == 0) {
-                    for (ClickSlotC2SPacket p: invActionPackets) {
-                        mc.getNetworkHandler().sendPacket(p);
-                    }
-                    invActionPackets.clear();
-                    endRestocking();
-                } else {
-                    timeoutTicks = invActionDelay.get();
-                }
+                timeoutTicks = invActionDelay.get();
                 break;
             case "AwaitDumpResponse":
                 interactTimeout = 0;
@@ -613,16 +605,6 @@ public class MapPrinter extends Module {
                     state = "Walking";
                     timeoutTicks = postRestockDelay.get();
                     break;
-                }
-
-                if (invActionDelay.get() == 0) {
-                    for (ClickSlotC2SPacket p: invActionPackets) {
-                        mc.getNetworkHandler().sendPacket(p);
-                    }
-                    invActionPackets.clear();
-                    if (checkpointAction != "mapMaterialChest") refillInventory();  //Only refill if not finished building the map
-                    state = "Walking";
-                    timeoutTicks = postRestockDelay.get();
                 }
                 break;
             case "AwaitMapChestResponse":
