@@ -1105,22 +1105,27 @@ public class MapPrinter extends Module {
         event.renderer.box(mapCorner, color.get(), color.get(), ShapeMode.Lines, 0);
         event.renderer.box(mapCorner.getX(), mapCorner.getY(), mapCorner.getZ(), mapCorner.getX()+128, mapCorner.getY(), mapCorner.getZ()+128, color.get(), color.get(), ShapeMode.Lines, 0);
 
-        if (renderChestPositions.get()) {
-            ArrayList<Pair<BlockPos, Vec3d>> renderedPairs = new ArrayList<>();
-            for (ArrayList<Pair<BlockPos, Vec3d>> list: materialDict.values()) {
-                renderedPairs.addAll(list);
-            }
-            renderedPairs.addAll(mapMaterialChests);
-            renderedPairs.addAll(dumpChests);
-            for (Pair<BlockPos, Vec3d> pair: renderedPairs) {
-                event.renderer.box(pair.getLeft(), color.get(), color.get(), ShapeMode.Lines, 0);
+
+        ArrayList<Pair<BlockPos, Vec3d>> renderedPairs = new ArrayList<>();
+        for (ArrayList<Pair<BlockPos, Vec3d>> list: materialDict.values()) {
+            renderedPairs.addAll(list);
+        }
+        renderedPairs.addAll(mapMaterialChests);
+        renderedPairs.addAll(dumpChests);
+        for (Pair<BlockPos, Vec3d> pair: renderedPairs) {
+            if (renderChestPositions.get()) event.renderer.box(pair.getLeft(), color.get(), color.get(), ShapeMode.Lines, 0);
+            if (renderOpenPositions.get()) {
                 Vec3d openPos = pair.getRight();
                 event.renderer.box(openPos.x-indicatorSize.get(), openPos.y-indicatorSize.get(), openPos.z-indicatorSize.get(), openPos.x+indicatorSize.get(), openPos.y+indicatorSize.get(), openPos.z+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
+        }
+
+        if (renderCheckpoints.get()) {
             for (Vec3d cp: checkpoints) {
                 event.renderer.box(cp.x-indicatorSize.get(), cp.y-indicatorSize.get(), cp.z-indicatorSize.get(), cp.getX()+indicatorSize.get(), cp.getY()+indicatorSize.get(), cp.getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
         }
+
 
         if (renderSpecialInteractions.get()) {
             if (reset != null) {
