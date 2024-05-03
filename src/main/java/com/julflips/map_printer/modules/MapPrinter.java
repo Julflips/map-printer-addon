@@ -223,7 +223,7 @@ public class MapPrinter extends Module {
     int placeDelayticks;
     boolean pressedReset;
     boolean closeNextInvPacket;
-    String state;
+    String state = "";
     Pair<BlockHitResult, Vec3d> reset;
     Pair<BlockHitResult, Vec3d> cartographyTable;
     Pair<BlockHitResult, Vec3d> finishedMapChest;
@@ -241,7 +241,7 @@ public class MapPrinter extends Module {
     ArrayList<BlockPos> checkedChests;
     ArrayList<Pair<Vec3d, Pair<String, BlockPos>>> checkpoints;    //(GoalPos, (checkpointAction, targetBlock))
     ArrayList<File> startedFiles;
-    ArrayList<ClickSlotC2SPacket> invActionPackets;
+    ArrayList<ClickSlotC2SPacket> invActionPackets = new ArrayList<>();
     Block[][] map;
     File mapFolder;
 
