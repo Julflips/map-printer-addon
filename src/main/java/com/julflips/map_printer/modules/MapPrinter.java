@@ -323,9 +323,10 @@ public class MapPrinter extends Module {
 
         //Iterate over map. Player has to be able to see the complete map area
         boolean isStartSide = true;
-        for (int x = 0; x <= 128-linesPerRun.get(); x += linesPerRun.get()) {
+        for (int x = 0; x < 128; x += linesPerRun.get()) {
             for (int z = 0; z < 128; z++) {
                 for (int lineBonus = 0; lineBonus < linesPerRun.get(); lineBonus++) {
+                    if (x + lineBonus > 127) break;
                     int adjustedZ = z;
                     if (!isStartSide) adjustedZ = 127 - z;
                     //info("x: "+ (x + lineBonus) + " z: " +  adjustedZ);
