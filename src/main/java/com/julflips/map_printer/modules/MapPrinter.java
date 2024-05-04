@@ -148,6 +148,13 @@ public class MapPrinter extends Module {
         .build()
     );
 
+    private final Setting<Boolean> sprinting = sgGeneral.add(new BoolSetting.Builder()
+        .name("sprinting")
+        .description("Sprints if not placing carpets.")
+        .defaultValue(true)
+        .build()
+    );
+
     private final Setting<Boolean> debugPrints = sgGeneral.add(new BoolSetting.Builder()
         .name("debug-prints")
         .description("Prints additional information.")
@@ -386,6 +393,9 @@ public class MapPrinter extends Module {
             }
             isStartSide = !isStartSide;
         }
+        //Make player sprint to the start of the map
+        Pair<Vec3d, Pair<String, BlockPos>>firstPoint = checkpoints.remove(0);
+        checkpoints.add(0, new Pair(firstPoint.getLeft(), new Pair("sprint", firstPoint.getRight().getRight())));
     }
 
     private boolean analyzeInventory() {
@@ -785,10 +795,10 @@ public class MapPrinter extends Module {
                         if (mapFillSquareSize.get() == 0) {
                             checkpoints.add(0, new Pair(cartographyTable.getRight(), new Pair<>("cartographyTable", null)));
                         } else {
-                            checkpoints.add(new Pair(goal.add(-mapFillSquareSize.get(), 0, mapFillSquareSize.get()), new Pair("", null)));
-                            checkpoints.add(new Pair(goal.add(mapFillSquareSize.get(), 0, mapFillSquareSize.get()), new Pair("", null)));
-                            checkpoints.add(new Pair(goal.add(mapFillSquareSize.get(), 0, -mapFillSquareSize.get()), new Pair("", null)));
-                            checkpoints.add(new Pair(goal.add(-mapFillSquareSize.get(), 0, -mapFillSquareSize.get()), new Pair("", null)));
+                            checkpoints.add(new Pair(goal.add(-mapFillSquareSize.get(), 0, mapFillSquareSize.get()), new Pair("sprint", null)));
+                            checkpoints.add(new Pair(goal.add(mapFillSquareSize.get(), 0, mapFillSquareSize.get()), new Pair("sprint", null)));
+                            checkpoints.add(new Pair(goal.add(mapFillSquareSize.get(), 0, -mapFillSquareSize.get()), new Pair("sprint", null)));
+                            checkpoints.add(new Pair(goal.add(-mapFillSquareSize.get(), 0, -mapFillSquareSize.get()), new Pair("sprint", null)));
                             checkpoints.add(new Pair(cartographyTable.getRight(), new Pair("cartographyTable", null)));
                         }
                         return;
@@ -844,8 +854,12 @@ public class MapPrinter extends Module {
             mc.player.setYaw((float) Rotations.getYaw(goal));
             String nextAction = checkpoints.get(0).getRight().getLeft();
 
+            if (nextAction == "") {
+                mc.player.setSprinting(false);
+            } else if (sprinting.get()) {
+                mc.player.setSprinting(true);
+            }
             if (nextAction == "refill" || nextAction == "dump") return;
-            if (mc.player.isSprinting()) mc.player.setSprinting(false);
             if (placeDelayticks > 0) {
                 placeDelayticks--;
                 return;
@@ -897,7 +911,7 @@ public class MapPrinter extends Module {
         }
         info("No "+ material.getName().getString() + " found in inventory. Resetting...");
         Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
-        checkpoints.add(0, new Pair(mc.player.getPos(), new Pair("", null)));
+        checkpoints.add(0, new Pair(mc.player.getPos(), new Pair("sprint", null)));
         checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
     }
 
