@@ -125,10 +125,10 @@ public class MapPrinter extends Module {
 
     private final Setting<Integer> placeDelay = sgGeneral.add(new IntSetting.Builder()
         .name("place-delay")
-        .description("How many ticks to wait after placing.")
-        .defaultValue(1)
+        .description("How many milliseconds to wait after placing.")
+        .defaultValue(20)
         .min(1)
-        .sliderRange(1, 10)
+        .sliderRange(10, 300)
         .build()
     );
 
@@ -148,10 +148,10 @@ public class MapPrinter extends Module {
         .build()
     );
 
-    private final Setting<Boolean> sprinting = sgGeneral.add(new BoolSetting.Builder()
-        .name("sprinting")
-        .description("Sprints if not placing carpets.")
-        .defaultValue(true)
+    private final Setting<SprintMode> sprinting = sgGeneral.add(new EnumSetting.Builder<SprintMode>()
+        .name("sprint-mode")
+        .description("How to sprint.")
+        .defaultValue(SprintMode.NotPlacing)
         .build()
     );
 
@@ -227,7 +227,7 @@ public class MapPrinter extends Module {
 
     int timeoutTicks;
     int interactTimeout;
-    int placeDelayticks;
+    long lastTickTime;
     boolean pressedReset;
     boolean closeNextInvPacket;
     String state;
@@ -254,6 +254,7 @@ public class MapPrinter extends Module {
 
     @Override
     public void onActivate() {
+        lastTickTime = System.currentTimeMillis();
         if (!activationReset.get() && checkpoints != null) {
             return;
         }
@@ -277,7 +278,6 @@ public class MapPrinter extends Module {
         pressedReset = false;
         timeoutTicks = 0;
         interactTimeout = 0;
-        placeDelayticks = 0;
         mapFolder = new File(Utils.getMinecraftDirectory() + File.separator + "map-printer");
         if (!mapFolder.exists()) {
             boolean created = mapFolder.mkdir();
@@ -713,6 +713,10 @@ public class MapPrinter extends Module {
     private void onTick(TickEvent.Pre event) {
         if (state == null) return;
 
+        long timeDifference = System.currentTimeMillis() - lastTickTime;
+        int allowedPlacements = (int) Math.floor(timeDifference / placeDelay.get());
+        lastTickTime += allowedPlacements * placeDelay.get();
+
         if (interactTimeout > 0) {
             interactTimeout--;
             if (interactTimeout == 0) {
@@ -774,102 +778,101 @@ public class MapPrinter extends Module {
             closeNextInvPacket = false;
         }
 
-        if (state.equals("Walking")) {
-            setWPressed(true);
-            Vec3d goal = checkpoints.get(0).getLeft();
-            if (PlayerUtils.distanceTo(goal.add(0,mc.player.getY()-goal.y,0)) < checkpointBuffer.get()) {
-                Pair<String, BlockPos> checkpointAction = checkpoints.get(0).getRight();
-                if (debugPrints.get() && checkpointAction.getLeft() != null && checkpointAction.getRight() != null) info("Reached " + checkpointAction.getLeft() + " for pos " + checkpointAction.getRight().toShortString());
-                checkpoints.remove(0);
-                mc.player.setPosition(goal.getX(), mc.player.getY(), goal.getZ());
-                mc.player.setVelocity(0,0,0);
-                switch (checkpointAction.getLeft()) {
-                    case "mapMaterialChest":
-                        BlockPos mapMaterialChest = getBestChest(Blocks.CARTOGRAPHY_TABLE).getLeft();
-                        interactWithBlock(mapMaterialChest);
-                        state = "AwaitMapChestResponse";
-                        setWPressed(false);
+        if (!state.equals("Walking")) return;
+        setWPressed(true);
+        Vec3d goal = checkpoints.get(0).getLeft();
+        if (PlayerUtils.distanceTo(goal.add(0,mc.player.getY()-goal.y,0)) < checkpointBuffer.get()) {
+            Pair<String, BlockPos> checkpointAction = checkpoints.get(0).getRight();
+            if (debugPrints.get() && checkpointAction.getLeft() != null && checkpointAction.getRight() != null) info("Reached " + checkpointAction.getLeft() + " for pos " + checkpointAction.getRight().toShortString());
+            checkpoints.remove(0);
+            mc.player.setPosition(goal.getX(), mc.player.getY(), goal.getZ());
+            mc.player.setVelocity(0,0,0);
+            switch (checkpointAction.getLeft()) {
+                case "mapMaterialChest":
+                    BlockPos mapMaterialChest = getBestChest(Blocks.CARTOGRAPHY_TABLE).getLeft();
+                    interactWithBlock(mapMaterialChest);
+                    state = "AwaitMapChestResponse";
+                    setWPressed(false);
+                    return;
+                case "fillMap":
+                    mc.getNetworkHandler().sendPacket(new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, Utils.getNextInteractID()));
+                    if (mapFillSquareSize.get() == 0) {
+                        checkpoints.add(0, new Pair(cartographyTable.getRight(), new Pair<>("cartographyTable", null)));
+                    } else {
+                        checkpoints.add(new Pair(goal.add(-mapFillSquareSize.get(), 0, mapFillSquareSize.get()), new Pair("sprint", null)));
+                        checkpoints.add(new Pair(goal.add(mapFillSquareSize.get(), 0, mapFillSquareSize.get()), new Pair("sprint", null)));
+                        checkpoints.add(new Pair(goal.add(mapFillSquareSize.get(), 0, -mapFillSquareSize.get()), new Pair("sprint", null)));
+                        checkpoints.add(new Pair(goal.add(-mapFillSquareSize.get(), 0, -mapFillSquareSize.get()), new Pair("sprint", null)));
+                        checkpoints.add(new Pair(cartographyTable.getRight(), new Pair("cartographyTable", null)));
+                    }
+                    return;
+                case "cartographyTable":
+                    interactWithBlock(cartographyTable.getLeft());
+                    state = "AwaitCartographyResponse";
+                    setWPressed(false);
+                    return;
+                case "finishedMapChest":
+                    interactWithBlock(finishedMapChest.getLeft().getBlockPos());
+                    state = "AwaitFinishedMapChestResponse";
+                    setWPressed(false);
+                    return;
+                case "reset":
+                    info("Resetting...");
+                    setWPressed(false);
+                    interactWithBlock(reset.getLeft());
+                    timeoutTicks = resetDelay.get();
+                    pressedReset = true;
+                    File mapFile = getNextMapFile();
+                    if (mapFile == null) {
+                        info("All nbt files finished");
+                        toggle();
                         return;
-                    case "fillMap":
-                        mc.getNetworkHandler().sendPacket(new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, Utils.getNextInteractID()));
-                        if (mapFillSquareSize.get() == 0) {
-                            checkpoints.add(0, new Pair(cartographyTable.getRight(), new Pair<>("cartographyTable", null)));
-                        } else {
-                            checkpoints.add(new Pair(goal.add(-mapFillSquareSize.get(), 0, mapFillSquareSize.get()), new Pair("sprint", null)));
-                            checkpoints.add(new Pair(goal.add(mapFillSquareSize.get(), 0, mapFillSquareSize.get()), new Pair("sprint", null)));
-                            checkpoints.add(new Pair(goal.add(mapFillSquareSize.get(), 0, -mapFillSquareSize.get()), new Pair("sprint", null)));
-                            checkpoints.add(new Pair(goal.add(-mapFillSquareSize.get(), 0, -mapFillSquareSize.get()), new Pair("sprint", null)));
-                            checkpoints.add(new Pair(cartographyTable.getRight(), new Pair("cartographyTable", null)));
-                        }
+                    }
+                    if (!loadNBTFiles(mapFile)) {
+                        warning("Failed to read schematic file.");
+                        toggle();
                         return;
-                    case "cartographyTable":
-                        interactWithBlock(cartographyTable.getLeft());
-                        state = "AwaitCartographyResponse";
-                        setWPressed(false);
-                        return;
-                    case "finishedMapChest":
-                        interactWithBlock(finishedMapChest.getLeft().getBlockPos());
-                        state = "AwaitFinishedMapChestResponse";
-                        setWPressed(false);
-                        return;
-                    case "reset":
-                        info("Resetting...");
-                        setWPressed(false);
-                        interactWithBlock(reset.getLeft());
-                        timeoutTicks = resetDelay.get();
-                        pressedReset = true;
-                        File mapFile = getNextMapFile();
-                        if (mapFile == null) {
-                            info("All nbt files finished");
-                            toggle();
-                            return;
-                        }
-                        if (!loadNBTFiles(mapFile)) {
-                            warning("Failed to read schematic file.");
-                            toggle();
-                            return;
-                        }
-                        return;
-                    case "dump":
-                        interactWithBlock(checkpointAction.getRight());
-                        state = "AwaitDumpResponse";
-                        setWPressed(false);
-                        return;
-                    case "refill":
-                        interactWithBlock(checkpointAction.getRight());
-                        state = "AwaitRestockResponse";
-                        setWPressed(false);
-                        return;
-                }
-                if (checkpoints.size() == 0) {
-                    info("Finished building map");
-                    Pair<BlockPos, Vec3d> bestChest = getBestChest(Blocks.CARTOGRAPHY_TABLE);
-                    checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest.getLeft())));
-
-                    bestChest = getBestChest(null);
-                    checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
-                }
-                goal = checkpoints.get(0).getLeft();
+                    }
+                    return;
+                case "dump":
+                    interactWithBlock(checkpointAction.getRight());
+                    state = "AwaitDumpResponse";
+                    setWPressed(false);
+                    return;
+                case "refill":
+                    interactWithBlock(checkpointAction.getRight());
+                    state = "AwaitRestockResponse";
+                    setWPressed(false);
+                    return;
             }
-            mc.player.setYaw((float) Rotations.getYaw(goal));
-            String nextAction = checkpoints.get(0).getRight().getLeft();
+            if (checkpoints.size() == 0) {
+                info("Finished building map");
+                Pair<BlockPos, Vec3d> bestChest = getBestChest(Blocks.CARTOGRAPHY_TABLE);
+                checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest.getLeft())));
 
-            if (nextAction == "") {
-                mc.player.setSprinting(false);
-            } else if (sprinting.get()) {
-                mc.player.setSprinting(true);
+                bestChest = getBestChest(null);
+                checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
             }
-            if (nextAction == "refill" || nextAction == "dump") return;
-            if (placeDelayticks > 0) {
-                placeDelayticks--;
-                return;
-            }
+            goal = checkpoints.get(0).getLeft();
+        }
+        mc.player.setYaw((float) Rotations.getYaw(goal));
+        String nextAction = checkpoints.get(0).getRight().getLeft();
 
+        if (nextAction == "" && sprinting.get() != SprintMode.Always) {
+            mc.player.setSprinting(false);
+        } else if (sprinting.get() != SprintMode.Off) {
+            mc.player.setSprinting(true);
+        }
+        if (nextAction == "refill" || nextAction == "dump") return;
+
+        ArrayList<BlockPos> placements = new ArrayList<>();
+        for (int i = 0; i < allowedPlacements; i++) {
             AtomicReference<BlockPos> closestPos = new AtomicReference<>();
             final Vec3d currentGoal = goal;
             Utils.iterateBlocks(mc.player.getBlockPos(), (int) Math.ceil(placeRange.get()) + 1, 0,((blockPos, blockState) -> {
                 Double posDistance = PlayerUtils.distanceTo(blockPos);
-                if ((!(blockState.getBlock() instanceof CarpetBlock)) && posDistance <= placeRange.get() && posDistance > 0.8 && blockPos.getX() <= currentGoal.getX() + linesPerRun.get()-1 && isWithingMap(blockPos)) {
+                if ((!(blockState.getBlock() instanceof CarpetBlock)) && posDistance <= placeRange.get() && posDistance > 0.8
+                    && blockPos.getX() <= currentGoal.getX() + linesPerRun.get()-1 && isWithingMap(blockPos) && !placements.contains(blockPos)) {
                     if (closestPos.get() == null || posDistance < PlayerUtils.distanceTo(closestPos.get())) {
                         closestPos.set(new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
                     }
@@ -877,14 +880,16 @@ public class MapPrinter extends Module {
             }));
 
             if (closestPos.get() != null) {
-                placeDelayticks = placeDelay.get();
-                //info("Closest pos: " + closestPos.get().toShortString());
-                tryPlacingBlock(closestPos.get());
+                //Stop placing if restocking
+                placements.add(closestPos.get());
+                if (!tryPlacingBlock(closestPos.get())) {
+                    return;
+                }
             }
         }
     }
 
-    private void tryPlacingBlock(BlockPos pos) {
+    private boolean tryPlacingBlock(BlockPos pos) {
         BlockPos relativePos = pos.subtract(mapCorner);
         Block material = map[relativePos.getX()][relativePos.getZ()];
         //info("Placing " + material.getName().getString() + " at: " + relativePos.toShortString());
@@ -894,7 +899,7 @@ public class MapPrinter extends Module {
             Block foundMaterial = Registries.BLOCK.get(new Identifier(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (foundMaterial.equals(material)) {
                 BlockUtils.place(pos, Hand.MAIN_HAND, slot, true,50, true, true, false);
-                return;
+                return true;
             }
         }
         for (int slot : availableSlots) {
@@ -906,13 +911,14 @@ public class MapPrinter extends Module {
                 setWPressed(false);
                 mc.player.setVelocity(0,0,0);
                 timeoutTicks = swapDelay.get();
-                return;
+                return false;
             }
         }
         info("No "+ material.getName().getString() + " found in inventory. Resetting...");
         Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
         checkpoints.add(0, new Pair(mc.player.getPos(), new Pair("sprint", null)));
         checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
+        return false;
     }
 
     private void endRestocking() {
@@ -1123,5 +1129,11 @@ public class MapPrinter extends Module {
                 event.renderer.box(finishedMapChest.getRight().x-indicatorSize.get(), finishedMapChest.getRight().y-indicatorSize.get(), finishedMapChest.getRight().z-indicatorSize.get(), finishedMapChest.getRight().getX()+indicatorSize.get(), finishedMapChest.getRight().getY()+indicatorSize.get(), finishedMapChest.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
         }
+    }
+
+    public enum SprintMode {
+        Off,
+        NotPlacing,
+        Always
     }
 }
