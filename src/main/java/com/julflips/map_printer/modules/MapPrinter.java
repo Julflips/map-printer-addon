@@ -347,12 +347,16 @@ public class MapPrinter extends Module {
         return requiredItems;
     }
 
-    private void refillInventory() {
+    private void refillInventory(HashMap<Block, Integer> invMaterial) {
         //Fills restockList with required items
         HashMap<Block, Integer> requiredItems = getRequiredItems();
+        for (Block material : invMaterial.keySet()) {
+            int oldAmount = requiredItems.remove(material);
+            requiredItems.put(material, oldAmount - invMaterial.get(material));
+        }
 
         for (Block block: requiredItems.keySet()) {
-            if (requiredItems.get(block) == 0) continue;
+            if (requiredItems.get(block) <= 0) continue;
             Pair<BlockPos, Vec3d> bestRestockPos = getBestChest(block);
             if (bestRestockPos.getLeft() == null) {
                 warning("No chest found for " + block.getName().getString());
@@ -399,28 +403,55 @@ public class MapPrinter extends Module {
         checkpoints.add(0, new Pair(firstPoint.getLeft(), new Pair("sprint", firstPoint.getRight().getRight())));
     }
 
-    private boolean analyzeInventory() {
-        //Check what slots are free to use for building
-        //If any carpets are in inventory, return true to dump them
-        boolean needsDump = false;
-        for (int i = 0; i < 36; i++) {
-            Block material = Registries.BLOCK.get(new Identifier(mc.player.getInventory().getStack(i).getItem().toString()));
-            if (mc.player.getInventory().getStack(i).isEmpty()) {
-                availableSlots.add(i);
+    private ArrayList<Integer> getAvailableSlots() {
+        ArrayList<Integer> slots = new ArrayList<>();
+        for (int slot = 0; slot < 36; slot++) {
+            if (mc.player.getInventory().getStack(slot).isEmpty()) {
+                slots.add(slot);
+                continue;
             }
+            Block material = Registries.BLOCK.get(new Identifier(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (materialDict.containsKey(material)) {
-                availableSlots.add(i);
-                needsDump = true;
+                slots.add(slot);
             }
         }
-        for (int slot : availableSlots) {
-            if (slot < 9) {
-                availableHotBarSlots.add(slot);
-            }
-        }
-        info("Inventory slots available for building: " + availableSlots);
+        return slots;
+    }
 
-        return needsDump;
+    private Pair<ArrayList<Integer>, HashMap<Block, Integer>> getInvInformation() {
+        //Return a list of slots to be dumped and a Hashmap of material-stacks we can keep in the inventory
+        ArrayList<Integer> dumpSlots = new ArrayList<>();
+        HashMap<Block, Integer> materialInInv = new HashMap<>();
+        HashMap<Block, Integer> requiredItems = getRequiredItems();
+        for (int slot : availableSlots) {
+            if (mc.player.getInventory().getStack(slot).isEmpty()) continue;
+            Block material = Registries.BLOCK.get(new Identifier(mc.player.getInventory().getStack(slot).getItem().toString()));
+            if (requiredItems.containsKey(material)) {
+                int requiredAmount = requiredItems.get(material);
+                int requiredModulusAmount = (requiredAmount - (requiredAmount / 64) * 64);
+                if (requiredModulusAmount == 0) requiredModulusAmount = 64;
+                int stackAmount = mc.player.getInventory().getStack(slot).getCount();
+                //info(material.getName().getString() + " | Required: " + requiredModulusAmount + " | Inv: " + stackAmount);
+                if (requiredAmount > 0 && requiredModulusAmount <= stackAmount) {
+                    int oldEntry = requiredItems.remove(material);
+                    requiredItems.put(material, Math.max(0, oldEntry - stackAmount));
+                    if (materialInInv.containsKey(material)) {
+                        oldEntry = materialInInv.remove(material);
+                        materialInInv.put(material, oldEntry + stackAmount);
+                    } else {
+                        materialInInv.put(material, stackAmount);
+                    }
+                    continue;
+                }
+            }
+            dumpSlots.add(slot);
+        }
+        if (debugPrints.get()) {
+            for (Block material : materialInInv.keySet()) {
+                info("Keeping: " + material.getName().getString() + " (" + materialInInv.get(material) + ")");
+            }
+        }
+        return new Pair(dumpSlots, materialInInv);
     }
 
     @EventHandler
@@ -477,11 +508,20 @@ public class MapPrinter extends Module {
                     }
                     setWPressed(true);
                     calculateBuildingPath();
-                    if (analyzeInventory()) {
+                    availableSlots = getAvailableSlots();
+                    for (int slot : availableSlots) {
+                        if (slot < 9) {
+                            availableHotBarSlots.add(slot);
+                        }
+                    }
+                    info("Inventory slots available for building: " + availableSlots);
+
+                    Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = getInvInformation();
+                    if (invInformation.getLeft().size() != 0) {
                         Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
                         checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
                     } else {
-                        refillInventory();
+                        refillInventory(invInformation.getRight());
                     }
                     if (availableHotBarSlots.size() == 0) {
                         warning("No free slots found in hot-bar!");
@@ -594,7 +634,8 @@ public class MapPrinter extends Module {
                 break;
             case "AwaitDumpResponse":
                 interactTimeout = 0;
-                for (int slot : availableSlots) {
+                Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = getInvInformation();
+                for (int slot : invInformation.getLeft()) {
                     //info("Initial slot: " + slot);
                     //Slot adjustment because slot IDs are different when opening a container
                     if (slot < 9) {
@@ -613,7 +654,7 @@ public class MapPrinter extends Module {
                 }
 
                 if (invActionPackets.isEmpty()) {
-                    refillInventory();
+                    refillInventory(invInformation.getRight());
                     state = "Walking";
                     timeoutTicks = postRestockDelay.get();
                     break;
@@ -746,7 +787,7 @@ public class MapPrinter extends Module {
                     endRestocking();
                 }
                 if (state.equals("AwaitDumpResponse")) {
-                    refillInventory();
+                    refillInventory(getInvInformation().getRight());
                     state = "Walking";
                     timeoutTicks = postRestockDelay.get();
                 }
