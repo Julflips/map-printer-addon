@@ -375,11 +375,12 @@ public class MapPrinter extends Module {
         //Fills checkpoints list
         boolean isStartSide = true;
         checkpoints.clear();
-        for (int i = 0; i < 128; i+=linesPerRun.get()) {
+        for (int x = 0; x < 128; x+=linesPerRun.get()) {
             boolean allCarpet = true;
             for (int lineBonus = 0; lineBonus < linesPerRun.get(); lineBonus++) {
-                for (int j = 0; j < 128; j++) {
-                    Block block = mc.world.getBlockState(mapCorner.add(i + lineBonus, 0, j)).getBlock();
+                if (x + lineBonus > 127) break;
+                for (int z = 0; z < 128; z++) {
+                    Block block = mc.world.getBlockState(mapCorner.add(x + lineBonus, 0, z)).getBlock();
                     if (!(block instanceof CarpetBlock)) {
                         allCarpet = false;
                         break;
@@ -387,8 +388,8 @@ public class MapPrinter extends Module {
                 }
             }
             if (allCarpet) continue;
-            Vec3d cp1 = mapCorner.toCenterPos().add(i,0,0);
-            Vec3d cp2 = mapCorner.toCenterPos().add(i,0,127);
+            Vec3d cp1 = mapCorner.toCenterPos().add(x,0,0);
+            Vec3d cp2 = mapCorner.toCenterPos().add(x,0,127);
             if (isStartSide) {
                 checkpoints.add(new Pair(cp1, new Pair("", null)));
                 checkpoints.add(new Pair(cp2, new Pair("", null)));
@@ -398,9 +399,11 @@ public class MapPrinter extends Module {
             }
             isStartSide = !isStartSide;
         }
-        //Make player sprint to the start of the map
-        Pair<Vec3d, Pair<String, BlockPos>>firstPoint = checkpoints.remove(0);
-        checkpoints.add(0, new Pair(firstPoint.getLeft(), new Pair("sprint", firstPoint.getRight().getRight())));
+        if (checkpoints.size() > 0) {
+            //Make player sprint to the start of the map
+            Pair<Vec3d, Pair<String, BlockPos>>firstPoint = checkpoints.remove(0);
+            checkpoints.add(0, new Pair(firstPoint.getLeft(), new Pair("sprint", firstPoint.getRight().getRight())));
+        }
     }
 
     private ArrayList<Integer> getAvailableSlots() {
@@ -888,11 +891,16 @@ public class MapPrinter extends Module {
                     return;
             }
             if (checkpoints.size() == 0) {
-                info("Finished building map");
-                Pair<BlockPos, Vec3d> bestChest = getBestChest(Blocks.CARTOGRAPHY_TABLE);
-                checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest.getLeft())));
+                calculateBuildingPath();
+                if (checkpoints.size() == 0) {
+                    info("Finished building map");
+                    Pair<BlockPos, Vec3d> bestChest = getBestChest(Blocks.CARTOGRAPHY_TABLE);
+                    checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest.getLeft())));
+                } else {
+                    info("Patching up missed parts of the map...");
+                }
 
-                bestChest = getBestChest(null);
+                Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
                 checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
             }
             goal = checkpoints.get(0).getLeft();
