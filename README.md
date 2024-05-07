@@ -1,7 +1,7 @@
 
 # Map Printer Addon
 
-Map Printer Addon is an addon for the meteor client allowing you to build 2D carpet mapart from NBT files. It works fully autonumous as long as the necessary materials are provided.
+Map Printer Addon is an addon for the meteor client allowing you to build 2D carpet mapart from NBT files. It works fully autonomous as long as the necessary materials are provided. Its main focus is reliability and compatibility with strict anti cheat servers.
 ## Setup
 To get the program running we first need to build an area where we will build one 1x1 map at a time. An area could look like this:
 ![Setup](Screenshots/MapArea.png)
@@ -12,8 +12,9 @@ As you can see we need a restock station to refill the bot inventory. We can bui
 Make sure it fulfills the following points:
 - The fluid dispensers and lighting should cover the whole 128x128 MapArea.
 - Avoid having grass blocks on the map area since it can lead to mobs spawning in certain biomes.
-- The restock station should have a DumpChest, FinishedMapChest, MapMaterialChest, Reset Button, and Cartography Table. I will explain later what the terms mean
+- The restock station should have a DumpChest, FinishedMapChest, MapMaterialChest, Reset Trapped Chest, and Cartography Table. I will explain later what the terms mean
 - Avoid having the bot pick up old carpets while restocking. If you choose the make restock station on the map area use lava at the restock station to delete the old carpets. For the other version use slabs to prevent the water from washing carpets into the station.
+- Make sure the server loads the entire map when resetting
 - If Phantoms are on you need a glass ceiling.
 - If you play on hard difficulty don't forget the regeneration beacon
 - **If the bot can not see the whole map from the DumpChest you need to install a mod that caches chunks to increase your render distance. This is necessary so the bot knows what carpets to restock. One mod I know for sure is compatible is [Bobby](https://www.curseforge.com/minecraft/mc-mods/bobby)**.
@@ -30,8 +31,8 @@ Pretty self-explanatory. The bot will put the maps here.
 #### MapMaterialChest
 This chest should contain empty maps and glass panes for the bot to lock new maps.
 
-#### Reset Button
-This button should activate the dispensers for a short amount of time. You can place it below iron bars the protect it from fluids. Make sure the bot is not touching lava when pressing this button.
+#### Reset Trapped Chest
+We use a trapped chest to activate the dispensers for a short amount of time. In contrast to a button, it is not destroyed by water, and we can easily confirm that the reset was activated.
 
 ### Load NBT files
 When the module is started for the first time a "map-printer" folder is created in your Minecraft directory. Put in as many 2D 1x1 NBT files as you like. Keep in mind the bot will process them in alphabetical order.

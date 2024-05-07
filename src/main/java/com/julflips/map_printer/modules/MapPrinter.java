@@ -484,13 +484,13 @@ public class MapPrinter extends Module {
                 int adjustedZ = getIntervalStart(hitPos.getZ());
                 mapCorner = new BlockPos(adjustedX, hitPos.getY(), adjustedZ);
                 state = "SelectingReset";
-                info("Map Area selected. Press the §aReset Button §7used to remove the carpets");
+                info("Map Area selected. Press the §aReset Trapped Chest §7used to remove the carpets");
                 break;
             case "SelectingReset":
                 BlockPos blockPos = packet.getBlockHitResult().getBlockPos();
-                if (mc.world.getBlockState(blockPos).getBlock() instanceof ButtonBlock) {
+                if (mc.world.getBlockState(blockPos).getBlock() instanceof TrappedChestBlock) {
                     reset = new Pair<>(packet.getBlockHitResult(), mc.player.getPos());
-                    info("Reset Button selected. Select the §aCartography Table.");
+                    info("Reset Trapped Chest selected. Select the §aCartography Table.");
                     state = "SelectingTable";
                 }
                 break;
