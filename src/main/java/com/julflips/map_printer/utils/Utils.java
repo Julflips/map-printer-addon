@@ -87,7 +87,7 @@ public class Utils {
     }
 
     public static int swapIntoHotbar(int slot , ArrayList<Integer> hotBarSlots) {
-        HashMap<Item, Integer> itemFrenquency = new HashMap<>();
+        HashMap<Item, Integer> itemFrequency = new HashMap<>();
         HashMap<Item, Integer> itemSlot = new HashMap<>();
         int targetSlot = hotBarSlots.get(0);
 
@@ -95,21 +95,21 @@ public class Utils {
         for (int i : hotBarSlots) {
             if (!mc.player.getInventory().getStack(i).isEmpty()) {
                 Item item = mc.player.getInventory().getStack(i).getItem();
-                if (!itemFrenquency.keySet().contains(item)) {
-                    itemFrenquency.put(item, 1);
+                if (!itemFrequency.keySet().contains(item)) {
+                    itemFrequency.put(item, 1);
                     itemSlot.put(item, i);
                 } else {
-                    itemFrenquency.put(item, itemFrenquency.get(item) + 1);
+                    itemFrequency.put(item, itemFrequency.get(item) + 1);
                 }
             }
         }
         int topFrequency = 0;
         ArrayList<Item> topFrequencyItems = new ArrayList<>();
-        for (Item item : itemFrenquency.keySet()) {
-            if (itemFrenquency.get(item) > topFrequency) {
-                topFrequency = itemFrenquency.get(item);
+        for (Item item : itemFrequency.keySet()) {
+            if (itemFrequency.get(item) > topFrequency) {
+                topFrequency = itemFrequency.get(item);
                 topFrequencyItems = new ArrayList<>(Arrays.asList(item));
-            } else if (itemFrenquency.get(item) == topFrequency) {
+            } else if (itemFrequency.get(item) == topFrequency) {
                 topFrequencyItems.add(item);
             }
         }
