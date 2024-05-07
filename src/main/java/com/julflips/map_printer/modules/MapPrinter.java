@@ -155,6 +155,13 @@ public class MapPrinter extends Module {
         .build()
     );
 
+    private final Setting<Boolean> moveToFinishedFolder = sgGeneral.add(new BoolSetting.Builder()
+        .name("move-to-finished-folder")
+        .description("Moves finished NBT files into the finished-maps folder in the map-printer folder.")
+        .defaultValue(true)
+        .build()
+    );
+
     private final Setting<Boolean> debugPrints = sgGeneral.add(new BoolSetting.Builder()
         .name("debug-prints")
         .description("Prints additional information.")
@@ -251,6 +258,7 @@ public class MapPrinter extends Module {
     ArrayList<ClickSlotC2SPacket> invActionPackets = new ArrayList<>();
     Block[][] map;
     File mapFolder;
+    File mapFile;
 
     @Override
     public void onActivate() {
@@ -279,6 +287,7 @@ public class MapPrinter extends Module {
         timeoutTicks = 0;
         interactTimeout = 0;
         mapFolder = new File(Utils.getMinecraftDirectory() + File.separator + "map-printer");
+        File finishedMapFolder = new File(mapFolder.getAbsolutePath() + File.separator + "_finished_maps");
         if (!mapFolder.exists()) {
             boolean created = mapFolder.mkdir();
             if (created) {
@@ -289,13 +298,21 @@ public class MapPrinter extends Module {
                 return;
             }
         }
-        File mapFile = getNextMapFile();
+        if (!finishedMapFolder.exists()) {
+            boolean created = finishedMapFolder.mkdir();
+            if (!created) {
+                warning("Failed to create Finished-NBT folder in map-printer folder");
+                toggle();
+                return;
+            }
+        }
+        mapFile = getNextMapFile();
         if (mapFile == null) {
             warning("No nbt files found in map-printer folder.");
             toggle();
             return;
         }
-        if (!loadNBTFiles(mapFile)) {
+        if (!loadNBTFiles()) {
             warning("Failed to read nbt file.");
             toggle();
             return;
@@ -867,13 +884,13 @@ public class MapPrinter extends Module {
                     interactWithBlock(reset.getLeft());
                     timeoutTicks = resetDelay.get();
                     pressedReset = true;
-                    File mapFile = getNextMapFile();
+                    mapFile = getNextMapFile();
                     if (mapFile == null) {
                         info("All nbt files finished");
                         toggle();
                         return;
                     }
-                    if (!loadNBTFiles(mapFile)) {
+                    if (!loadNBTFiles()) {
                         warning("Failed to read schematic file.");
                         toggle();
                         return;
@@ -896,6 +913,12 @@ public class MapPrinter extends Module {
                     info("Finished building map");
                     Pair<BlockPos, Vec3d> bestChest = getBestChest(Blocks.CARTOGRAPHY_TABLE);
                     checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest.getLeft())));
+                    try {
+                        if (moveToFinishedFolder.get()) mapFile.renameTo(new File(mapFile.getParentFile().getAbsolutePath()+File.separator+"_finished_maps"+File.separator+mapFile.getName()));
+                    } catch (Exception e) {
+                        warning("Failed to move map file " + mapFile.getName() + " to finished map folder");
+                        e.printStackTrace();
+                    }
                 } else {
                     info("Patching up missed parts of the map...");
                 }
@@ -1057,7 +1080,7 @@ public class MapPrinter extends Module {
 
     private File getNextMapFile() {
         for (File file : mapFolder.listFiles()) {
-            if (!startedFiles.contains(file)) {
+            if (!startedFiles.contains(file) && file.isFile()) {
                 startedFiles.add(file);
                 return file;
             }
@@ -1065,7 +1088,7 @@ public class MapPrinter extends Module {
         return null;
     }
 
-    private boolean loadNBTFiles(File mapFile) {
+    private boolean loadNBTFiles() {
         info("Building: §a" + mapFile.getName());
         try {
             NbtSizeTracker sizeTracker = new NbtSizeTracker(0x20000000L, 100);
