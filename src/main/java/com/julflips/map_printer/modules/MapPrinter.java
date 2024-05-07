@@ -32,6 +32,7 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
+import org.apache.commons.lang3.tuple.Triple;
 
 import java.io.File;
 import java.util.*;
@@ -251,7 +252,7 @@ public class MapPrinter extends Module {
     HashMap<Block, ArrayList<Pair<BlockPos, Vec3d>>> materialDict; //Maps block to the chest pos and the open position
     ArrayList<Integer> availableSlots;
     ArrayList<Integer> availableHotBarSlots;
-    ArrayList<Pair<Integer, Integer>> restockList;                 //ChestPos, OpenPos, Amount
+    ArrayList<Triple<Block, Integer, Integer>> restockList;        //Material, Stacks, Raw Amount
     ArrayList<BlockPos> checkedChests;
     ArrayList<Pair<Vec3d, Pair<String, BlockPos>>> checkpoints;    //(GoalPos, (checkpointAction, targetBlock))
     ArrayList<File> startedFiles;
@@ -374,17 +375,37 @@ public class MapPrinter extends Module {
 
         for (Block block: requiredItems.keySet()) {
             if (requiredItems.get(block) <= 0) continue;
-            Pair<BlockPos, Vec3d> bestRestockPos = getBestChest(block);
+            int stacks = (int) Math.ceil((float) requiredItems.get(block) / 64f);
+            info("Restocking §a" + stacks + " stacks " + block.getName().getString() + " (" + requiredItems.get(block) + ")");
+            restockList.add(0, Triple.of(block , stacks, requiredItems.get(block)));
+        }
+        addClosestRestockCheckpoint();
+    }
+
+    private void addClosestRestockCheckpoint() {
+        //Determine closest restock chest for material in restock list
+        if (restockList.size() == 0) return;
+        double smallestDistance = Double.MAX_VALUE;
+        Triple<Block, Integer, Integer> closestEntry = null;
+        Pair<BlockPos, Vec3d> restockPos = null;
+        for (Triple<Block, Integer, Integer> entry : restockList) {
+            Pair<BlockPos, Vec3d> bestRestockPos = getBestChest(entry.getLeft());
             if (bestRestockPos.getLeft() == null) {
-                warning("No chest found for " + block.getName().getString());
+                warning("No chest found for " + entry.getLeft().getName().getString());
                 toggle();
                 return;
             }
-            int stacks = (int) Math.ceil((float) requiredItems.get(block) / 64f);
-            info("Restocking §a" + stacks + " stacks " + block.getName().getString() + " (" + requiredItems.get(block) + ")");
-            restockList.add(0, new Pair(stacks, requiredItems.get(block)));
-            checkpoints.add(0, new Pair(bestRestockPos.getRight(), new Pair("refill", bestRestockPos.getLeft())));
+            double chestDistance = PlayerUtils.distanceTo(bestRestockPos.getRight());
+            if (chestDistance < smallestDistance) {
+                smallestDistance = chestDistance;
+                closestEntry = entry;
+                restockPos = bestRestockPos;
+            }
         }
+        //Set closest material as first and as checkpoint
+        restockList.remove(closestEntry);
+        restockList.add(0, closestEntry);
+        checkpoints.add(0, new Pair(restockPos.getRight(), new Pair("refill", restockPos.getLeft())));
     }
 
     private void calculateBuildingPath() {
@@ -630,7 +651,7 @@ public class MapPrinter extends Module {
                 for (int i = 0; i < packet.getContents().size()-36; i++) {
                     ItemStack stack = packet.getContents().get(i);
 
-                    if (restockList.get(0).getLeft() == 0) {
+                    if (restockList.get(0).getMiddle() == 0) {
                         foundMaterials = true;
                         break;
                     }
@@ -644,8 +665,8 @@ public class MapPrinter extends Module {
                             return;
                         }
                         invActionPackets.add(new ClickSlotC2SPacket(packet.getSyncId(), 1, i, 1, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
-                        Pair<Integer, Integer> oldPair = restockList.remove(0);
-                        restockList.add(0, new Pair(oldPair.getLeft() - 1, oldPair.getRight() - 64));
+                        Triple<Block, Integer, Integer> oldTriple = restockList.remove(0);
+                        restockList.add(0, Triple.of(oldTriple.getLeft(), oldTriple.getMiddle() - 1, oldTriple.getRight() - 64));
                     }
                 }
                 if (!foundMaterials) return;
@@ -845,7 +866,7 @@ public class MapPrinter extends Module {
         Vec3d goal = checkpoints.get(0).getLeft();
         if (PlayerUtils.distanceTo(goal.add(0,mc.player.getY()-goal.y,0)) < checkpointBuffer.get()) {
             Pair<String, BlockPos> checkpointAction = checkpoints.get(0).getRight();
-            if (debugPrints.get() && checkpointAction.getLeft() != null && checkpointAction.getRight() != null) info("Reached " + checkpointAction.getLeft() + " for pos " + checkpointAction.getRight().toShortString());
+            if (debugPrints.get() && checkpointAction.getLeft() != null && checkpointAction.getRight() != null) info("Reached " + checkpointAction.getLeft());
             checkpoints.remove(0);
             mc.player.setPosition(goal.getX(), mc.player.getY(), goal.getZ());
             mc.player.setVelocity(0,0,0);
@@ -995,7 +1016,7 @@ public class MapPrinter extends Module {
     }
 
     private void endRestocking() {
-        if (restockList.get(0).getLeft() > 0) {
+        if (restockList.get(0).getMiddle() > 0) {
             warning("Not all necessary stacks restocked. Searching for another chest...");
             //Search for the next best chest
             checkedChests.add(lastInteractedChest);
@@ -1004,6 +1025,7 @@ public class MapPrinter extends Module {
         } else {
             checkedChests.clear();
             restockList.remove(0);
+            addClosestRestockCheckpoint();
         }
         timeoutTicks = postRestockDelay.get();
         state = "Walking";
