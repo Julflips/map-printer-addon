@@ -586,11 +586,6 @@ public class MapPrinter extends Module {
 
     @EventHandler
     private void onReceivePacket(PacketEvent.Receive event) {
-        if (event.packet instanceof BlockUpdateS2CPacket packet && reset != null
-            && packet.getPos().equals(reset.getLeft().getBlockPos())) {
-            interactTimeout = 0;
-        }
-
         if (!(event.packet instanceof InventoryS2CPacket packet) || state == null) return;
         if (state.equals("AwaitContent")) {
             //info("Chest content received.");
@@ -631,7 +626,8 @@ public class MapPrinter extends Module {
             state = "SelectingChests";
         }
 
-        List<String> allowedStates = Arrays.asList("AwaitRestockResponse", "AwaitDumpResponse", "AwaitMapChestResponse", "AwaitCartographyResponse", "AwaitFinishedMapChestResponse");
+        List<String> allowedStates = Arrays.asList("AwaitRestockResponse", "AwaitDumpResponse", "AwaitMapChestResponse",
+            "AwaitCartographyResponse", "AwaitFinishedMapChestResponse", "AwaitResetResponse");
         if (allowedStates.contains(state)) {
             if (preRestockDelay.get() == 0) {
                 handleInventoryPacket(packet);
@@ -770,6 +766,23 @@ public class MapPrinter extends Module {
                 checkpoints.add(new Pair(reset.getRight(), new Pair("reset", null)));
                 state = "Walking";
                 break;
+            case "AwaitResetResponse":
+                interactTimeout = 0;
+                timeoutTicks = resetDelay.get();
+                pressedReset = true;
+                mapFile = getNextMapFile();
+                if (mapFile == null) {
+                    info("All nbt files finished");
+                    toggle();
+                    return;
+                }
+                if (!loadNBTFiles()) {
+                    warning("Failed to read schematic file.");
+                    toggle();
+                    return;
+                }
+                state = "Walking";
+                break;
         }
     }
 
@@ -903,19 +916,8 @@ public class MapPrinter extends Module {
                     info("Resetting...");
                     setWPressed(false);
                     interactWithBlock(reset.getLeft());
-                    timeoutTicks = resetDelay.get();
-                    pressedReset = true;
-                    mapFile = getNextMapFile();
-                    if (mapFile == null) {
-                        info("All nbt files finished");
-                        toggle();
-                        return;
-                    }
-                    if (!loadNBTFiles()) {
-                        warning("Failed to read schematic file.");
-                        toggle();
-                        return;
-                    }
+                    state = "AwaitResetResponse";
+                    lastInteractedChest = reset.getLeft().getBlockPos();
                     return;
                 case "dump":
                     interactWithBlock(checkpointAction.getRight());
