@@ -1161,6 +1161,9 @@ public class MapPrinter extends Module {
         Input.setKeyState(mc.options.forwardKey, pressed);
     }
 
+    @Override
+    public String getInfoString() { return mapFile.getName(); }
+
     @EventHandler
     private void onRender(Render3DEvent event) {
         if(mapCorner == null || !render.get()) return;
