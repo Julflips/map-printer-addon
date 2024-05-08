@@ -21,7 +21,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.*;
 import net.minecraft.network.packet.c2s.play.*;
-import net.minecraft.network.packet.s2c.play.BlockUpdateS2CPacket;
 import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.screen.slot.SlotActionType;
@@ -60,6 +59,24 @@ public class MapPrinter extends Module {
         .build()
     );
 
+    private final Setting<Double> placeRange = sgGeneral.add(new DoubleSetting.Builder()
+        .name("place-range")
+        .description("The maximum range you can place carpets around yourself.")
+        .defaultValue(4)
+        .min(1)
+        .sliderRange(1, 5)
+        .build()
+    );
+
+    private final Setting<Integer> placeDelay = sgGeneral.add(new IntSetting.Builder()
+        .name("place-delay")
+        .description("How many milliseconds to wait after placing.")
+        .defaultValue(20)
+        .min(1)
+        .sliderRange(10, 300)
+        .build()
+    );
+
     private final Setting<Integer> mapFillSquareSize = sgGeneral.add(new IntSetting.Builder()
         .name("map-fill-square-size")
         .description("The radius of the square the bot fill walk to explore the map.")
@@ -73,8 +90,8 @@ public class MapPrinter extends Module {
         .name("pre-restock-delay")
         .description("How many ticks to wait to take items after opening the chest.")
         .defaultValue(10)
-        .min(0)
-        .sliderRange(0, 40)
+        .min(1)
+        .sliderRange(1, 40)
         .build()
     );
 
@@ -115,21 +132,12 @@ public class MapPrinter extends Module {
         .build()
     );
 
-    private final Setting<Double> placeRange = sgGeneral.add(new DoubleSetting.Builder()
-        .name("place-range")
-        .description("The maximum range you can place carpets around yourself.")
-        .defaultValue(4)
+    private final Setting<Integer> resetChestCloseDelay = sgGeneral.add(new IntSetting.Builder()
+        .name("reset-chest-close-delay")
+        .description("How many ticks to wait before closing the reset trap chest again.")
+        .defaultValue(10)
         .min(1)
-        .sliderRange(1, 5)
-        .build()
-    );
-
-    private final Setting<Integer> placeDelay = sgGeneral.add(new IntSetting.Builder()
-        .name("place-delay")
-        .description("How many milliseconds to wait after placing.")
-        .defaultValue(20)
-        .min(1)
-        .sliderRange(10, 300)
+        .sliderRange(1, 40)
         .build()
     );
 
@@ -235,6 +243,7 @@ public class MapPrinter extends Module {
 
     int timeoutTicks;
     int interactTimeout;
+    int closeResetChestTicks;
     long lastTickTime;
     boolean pressedReset;
     boolean closeNextInvPacket;
@@ -287,6 +296,7 @@ public class MapPrinter extends Module {
         pressedReset = false;
         timeoutTicks = 0;
         interactTimeout = 0;
+        closeResetChestTicks = 0;
         mapFolder = new File(Utils.getMinecraftDirectory() + File.separator + "map-printer");
         File finishedMapFolder = new File(mapFolder.getAbsolutePath() + File.separator + "_finished_maps");
         if (!mapFolder.exists()) {
@@ -629,12 +639,8 @@ public class MapPrinter extends Module {
         List<String> allowedStates = Arrays.asList("AwaitRestockResponse", "AwaitDumpResponse", "AwaitMapChestResponse",
             "AwaitCartographyResponse", "AwaitFinishedMapChestResponse", "AwaitResetResponse");
         if (allowedStates.contains(state)) {
-            if (preRestockDelay.get() == 0) {
-                handleInventoryPacket(packet);
-            } else {
-                toBeHandledInvPacket = packet;
-                timeoutTicks = preRestockDelay.get();
-            }
+            toBeHandledInvPacket = packet;
+            timeoutTicks = preRestockDelay.get();
         }
     }
 
@@ -770,6 +776,9 @@ public class MapPrinter extends Module {
                 interactTimeout = 0;
                 timeoutTicks = resetDelay.get();
                 pressedReset = true;
+                closeNextInvPacket = false;
+                closeResetChestTicks = resetChestCloseDelay.get();
+
                 mapFile = getNextMapFile();
                 if (mapFile == null) {
                     info("All nbt files finished");
@@ -826,6 +835,11 @@ public class MapPrinter extends Module {
                     interactWithBlock(lastInteractedChest);
                 }
             }
+        }
+
+        if (closeResetChestTicks > 0) {
+            closeResetChestTicks--;
+            if (closeResetChestTicks == 0) mc.player.closeHandledScreen();
         }
 
         if (timeoutTicks > 0) {
