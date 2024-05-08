@@ -44,7 +44,7 @@ public class MapPrinter extends Module {
     private final Setting<Integer> linesPerRun = sgGeneral.add(new IntSetting.Builder()
         .name("lines-per-run")
         .description("How many lines to place in parallel per run.")
-        .defaultValue(2)
+        .defaultValue(3)
         .min(1)
         .sliderRange(1, 5)
         .build()
@@ -53,7 +53,7 @@ public class MapPrinter extends Module {
     private final Setting<Double> checkpointBuffer = sgGeneral.add(new DoubleSetting.Builder()
         .name("checkpoint-buffer")
         .description("The buffer area of the checkpoints. Larger means less precise walking, but might be desired at higher speeds.")
-        .defaultValue(0.1)
+        .defaultValue(0.2)
         .min(0)
         .sliderRange(0, 1)
         .build()
@@ -71,7 +71,7 @@ public class MapPrinter extends Module {
     private final Setting<Integer> placeDelay = sgGeneral.add(new IntSetting.Builder()
         .name("place-delay")
         .description("How many milliseconds to wait after placing.")
-        .defaultValue(20)
+        .defaultValue(50)
         .min(1)
         .sliderRange(10, 300)
         .build()
@@ -80,7 +80,7 @@ public class MapPrinter extends Module {
     private final Setting<Integer> mapFillSquareSize = sgGeneral.add(new IntSetting.Builder()
         .name("map-fill-square-size")
         .description("The radius of the square the bot fill walk to explore the map.")
-        .defaultValue(10)
+        .defaultValue(1)
         .min(0)
         .sliderRange(0, 50)
         .build()
@@ -89,7 +89,7 @@ public class MapPrinter extends Module {
     private final Setting<Integer> preRestockDelay = sgGeneral.add(new IntSetting.Builder()
         .name("pre-restock-delay")
         .description("How many ticks to wait to take items after opening the chest.")
-        .defaultValue(10)
+        .defaultValue(20)
         .min(1)
         .sliderRange(1, 40)
         .build()
@@ -100,14 +100,14 @@ public class MapPrinter extends Module {
         .description("How many ticks to wait between each inventory action (moving a stack).")
         .defaultValue(2)
         .min(1)
-        .sliderRange(0, 40)
+        .sliderRange(1, 40)
         .build()
     );
 
     private final Setting<Integer> postRestockDelay = sgGeneral.add(new IntSetting.Builder()
         .name("post-restock-delay")
         .description("How many ticks to wait after restocking.")
-        .defaultValue(10)
+        .defaultValue(20)
         .min(1)
         .sliderRange(1, 40)
         .build()
@@ -116,7 +116,7 @@ public class MapPrinter extends Module {
     private final Setting<Integer> swapDelay = sgGeneral.add(new IntSetting.Builder()
         .name("swap-delay")
         .description("How many ticks to wait before swapping into hotbar.")
-        .defaultValue(5)
+        .defaultValue(2)
         .min(0)
         .sliderRange(0, 20)
         .build()
@@ -144,9 +144,18 @@ public class MapPrinter extends Module {
     private final Setting<Integer> retryInteractTimer = sgGeneral.add(new IntSetting.Builder()
         .name("retry-interact-timer")
         .description("How many ticks to wait for chest response before interacting with it again.")
-        .defaultValue(100)
+        .defaultValue(80)
         .min(1)
         .sliderRange(20, 200)
+        .build()
+    );
+
+    private final Setting<Integer> maxRestockRetries = sgGeneral.add(new IntSetting.Builder()
+        .name("max-restock-retries")
+        .description("How many times to search for a restock chest. Prevents infinite loop when inventory is full.")
+        .defaultValue(20)
+        .min(0)
+        .sliderRange(0, 100)
         .build()
     );
 
@@ -242,8 +251,9 @@ public class MapPrinter extends Module {
     }
 
     int timeoutTicks;
-    int interactTimeout;
     int closeResetChestTicks;
+    int interactTimeout;
+    int retriesLeft;
     long lastTickTime;
     boolean pressedReset;
     boolean closeNextInvPacket;
@@ -296,6 +306,7 @@ public class MapPrinter extends Module {
         pressedReset = false;
         timeoutTicks = 0;
         interactTimeout = 0;
+        retriesLeft = maxRestockRetries.get();
         closeResetChestTicks = 0;
         mapFolder = new File(Utils.getMinecraftDirectory() + File.separator + "map-printer");
         File finishedMapFolder = new File(mapFolder.getAbsolutePath() + File.separator + "_finished_maps");
@@ -1032,13 +1043,15 @@ public class MapPrinter extends Module {
     }
 
     private void endRestocking() {
-        if (restockList.get(0).getMiddle() > 0) {
+        if (restockList.get(0).getMiddle() > 0 && retriesLeft > 0) {
             warning("Not all necessary stacks restocked. Searching for another chest...");
             //Search for the next best chest
+            retriesLeft--;
             checkedChests.add(lastInteractedChest);
             Pair<BlockPos, Vec3d> bestRestockPos = getBestChest(getMaterialFromPos(lastInteractedChest));
             checkpoints.add(0, new Pair<>(bestRestockPos.getRight(), new Pair<>("refill", bestRestockPos.getLeft())));
         } else {
+            retriesLeft = maxRestockRetries.get();
             checkedChests.clear();
             restockList.remove(0);
             addClosestRestockCheckpoint();
