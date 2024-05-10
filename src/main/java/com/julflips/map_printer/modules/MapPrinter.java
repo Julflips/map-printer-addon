@@ -789,19 +789,6 @@ public class MapPrinter extends Module {
                 pressedReset = true;
                 closeNextInvPacket = false;
                 closeResetChestTicks = resetChestCloseDelay.get();
-
-                mapFile = getNextMapFile();
-                if (mapFile == null) {
-                    info("All nbt files finished");
-                    toggle();
-                    return;
-                }
-                if (!loadNBTFiles()) {
-                    warning("Failed to read schematic file.");
-                    toggle();
-                    return;
-                }
-                state = "Walking";
                 break;
         }
     }
@@ -850,7 +837,21 @@ public class MapPrinter extends Module {
 
         if (closeResetChestTicks > 0) {
             closeResetChestTicks--;
-            if (closeResetChestTicks == 0) mc.player.closeHandledScreen();
+            if (closeResetChestTicks == 0) {
+                mc.player.closeHandledScreen();
+                mapFile = getNextMapFile();
+                if (mapFile == null) {
+                    info("All nbt files finished");
+                    toggle();
+                    return;
+                }
+                if (!loadNBTFiles()) {
+                    warning("Failed to read schematic file.");
+                    toggle();
+                    return;
+                }
+                state = "Walking";
+            }
         }
 
         if (timeoutTicks > 0) {
@@ -1213,7 +1214,13 @@ public class MapPrinter extends Module {
     }
 
     @Override
-    public String getInfoString() { return mapFile.getName(); }
+    public String getInfoString() {
+        if (mapFile != null) {
+            return mapFile.getName();
+        } else {
+            return "None";
+        }
+    }
 
     @EventHandler
     private void onRender(Render3DEvent event) {
