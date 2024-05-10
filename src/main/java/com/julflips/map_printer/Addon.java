@@ -1,6 +1,7 @@
 package com.julflips.map_printer;
 
-import com.julflips.map_printer.modules.MapPrinter;
+import com.julflips.map_printer.modules.CarpetPrinter;
+import com.julflips.map_printer.modules.FullBlockPrinter;
 import com.mojang.logging.LogUtils;
 import meteordevelopment.meteorclient.addons.MeteorAddon;
 import meteordevelopment.meteorclient.systems.modules.Category;
@@ -16,7 +17,8 @@ public class Addon extends MeteorAddon {
         LOG.info("Initializing Map Printer");
 
         // Modules
-        Modules.get().add(new MapPrinter());
+        Modules.get().add(new CarpetPrinter());
+        Modules.get().add(new FullBlockPrinter());
 
     }
 
