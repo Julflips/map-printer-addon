@@ -306,25 +306,11 @@ public class CarpetPrinter extends Module {
         interactTimeout = 0;
         retriesLeft = maxRestockRetries.get();
         closeResetChestTicks = 0;
+
         mapFolder = new File(Utils.getMinecraftDirectory() + File.separator + "map-printer");
-        File finishedMapFolder = new File(mapFolder.getAbsolutePath() + File.separator + "_finished_maps");
-        if (!mapFolder.exists()) {
-            boolean created = mapFolder.mkdir();
-            if (created) {
-                info("Created map-printer folder in Minecraft directory");
-            } else {
-                warning("Failed to create map-printer folder in Minecraft directory");
-                toggle();
-                return;
-            }
-        }
-        if (!finishedMapFolder.exists()) {
-            boolean created = finishedMapFolder.mkdir();
-            if (!created) {
-                warning("Failed to create Finished-NBT folder in map-printer folder");
-                toggle();
-                return;
-            }
+        if (!Utils.createMapFolder(mapFolder)) {
+            toggle();
+            return;
         }
         mapFile = getNextMapFile();
         if (mapFile == null) {
@@ -1162,7 +1148,7 @@ public class CarpetPrinter extends Module {
         }
     }
 
-    public enum State {
+    private enum State {
         AwaitContent,
         SelectingReset,
         SelectingChests,

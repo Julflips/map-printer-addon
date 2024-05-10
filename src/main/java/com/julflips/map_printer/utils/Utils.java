@@ -22,6 +22,7 @@ import net.minecraft.util.Pair;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -173,6 +174,27 @@ public class Utils {
             // Unsupported OS, handle accordingly
             throw new IllegalStateException("Unsupported operating system: " + os);
         }
+    }
+
+    public static boolean createMapFolder(File mapFolder) {
+        File finishedMapFolder = new File(mapFolder.getAbsolutePath() + File.separator + "_finished_maps");
+        if (!mapFolder.exists()) {
+            boolean created = mapFolder.mkdir();
+            if (created) {
+                ChatUtils.info("Created map-printer folder in Minecraft directory");
+            } else {
+                ChatUtils.warning("Failed to create map-printer folder in Minecraft directory");
+                return false;
+            }
+        }
+        if (!finishedMapFolder.exists()) {
+            boolean created = finishedMapFolder.mkdir();
+            if (!created) {
+                ChatUtils.warning("Failed to create Finished-NBT folder in map-printer folder");
+                return false;
+            }
+        }
+        return true;
     }
 
     public static int getIntervalStart(int pos) {
