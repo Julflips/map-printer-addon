@@ -148,15 +148,6 @@ public class CarpetPrinter extends Module {
         .build()
     );
 
-    private final Setting<Integer> maxRestockRetries = sgGeneral.add(new IntSetting.Builder()
-        .name("max-restock-retries")
-        .description("How many times to search for a restock chest. Prevents infinite loop when inventory is full.")
-        .defaultValue(20)
-        .min(0)
-        .sliderRange(0, 100)
-        .build()
-    );
-
     private final Setting<Boolean> activationReset = sgGeneral.add(new BoolSetting.Builder()
         .name("activation-reset")
         .description("Disable if the bot should continue after reconnecting to the server.")
@@ -251,7 +242,6 @@ public class CarpetPrinter extends Module {
     int timeoutTicks;
     int closeResetChestTicks;
     int interactTimeout;
-    int retriesLeft;
     long lastTickTime;
     boolean pressedReset;
     boolean closeNextInvPacket;
@@ -304,7 +294,6 @@ public class CarpetPrinter extends Module {
         pressedReset = false;
         timeoutTicks = 0;
         interactTimeout = 0;
-        retriesLeft = maxRestockRetries.get();
         closeResetChestTicks = 0;
 
         mapFolder = new File(Utils.getMinecraftDirectory() + File.separator + "map-printer");
@@ -329,6 +318,7 @@ public class CarpetPrinter extends Module {
 
     private void refillInventory(HashMap<Block, Integer> invMaterial) {
         //Fills restockList with required items
+        restockList.clear();
         HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), carpetDict, availableSlots.size(), map);
         for (Block material : invMaterial.keySet()) {
             int oldAmount = requiredItems.remove(material);
@@ -338,7 +328,6 @@ public class CarpetPrinter extends Module {
         for (Block block: requiredItems.keySet()) {
             if (requiredItems.get(block) <= 0) continue;
             int stacks = (int) Math.ceil((float) requiredItems.get(block) / 64f);
-            restockList.clear();
             info("Restocking §a" + stacks + " stacks " + block.getName().getString() + " (" + requiredItems.get(block) + ")");
             restockList.add(0, Triple.of(block , stacks, requiredItems.get(block)));
         }
@@ -565,8 +554,10 @@ public class CarpetPrinter extends Module {
                         foundMaterials = true;
                         int highestFreeSlot = Utils.findHighestFreeSlot(packet);
                         if (highestFreeSlot == -1) {
-                            info("No free slots found in inventory.");
-                            endRestocking();
+                            warning("No free slots found in inventory.");
+                            Pair<BlockPos, Vec3d> dumpChest = getBestChest(null);
+                            checkpoints.add(0, new Pair(dumpChest.getRight(), new Pair("dump", dumpChest.getLeft())));
+                            state = State.Walking;
                             return;
                         }
                         invActionPackets.add(new ClickSlotC2SPacket(packet.getSyncId(), 1, i, 1, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
@@ -933,18 +924,16 @@ public class CarpetPrinter extends Module {
     }
 
     private void endRestocking() {
-        if (restockList.get(0).getMiddle() > 0 && retriesLeft > 0) {
+        if (restockList.get(0).getMiddle() > 0) {
             warning("Not all necessary stacks restocked. Searching for another chest...");
             //Search for the next best chest
-            retriesLeft--;
             checkedChests.add(lastInteractedChest);
             Pair<BlockPos, Vec3d> bestRestockPos = getBestChest(getMaterialFromPos(lastInteractedChest));
             checkpoints.add(0, new Pair<>(bestRestockPos.getRight(), new Pair<>("refill", bestRestockPos.getLeft())));
         } else {
-            retriesLeft = maxRestockRetries.get();
             checkedChests.clear();
-            Pair<BlockPos, Vec3d> dumpChest = getBestChest(null);
-            checkpoints.add(0, new Pair(dumpChest.getRight(), new Pair("dump", dumpChest.getLeft())));
+            restockList.remove(0);
+            addClosestRestockCheckpoint();
         }
         timeoutTicks = postRestockDelay.get();
         state = State.Walking;
