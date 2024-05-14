@@ -397,6 +397,7 @@ public class MapPrinter extends Module {
         for (Block block: requiredItems.keySet()) {
             if (requiredItems.get(block) <= 0) continue;
             int stacks = (int) Math.ceil((float) requiredItems.get(block) / 64f);
+            restockList.clear();
             info("Restocking §a" + stacks + " stacks " + block.getName().getString() + " (" + requiredItems.get(block) + ")");
             restockList.add(0, Triple.of(block , stacks, requiredItems.get(block)));
         }
@@ -1054,8 +1055,8 @@ public class MapPrinter extends Module {
         } else {
             retriesLeft = maxRestockRetries.get();
             checkedChests.clear();
-            restockList.remove(0);
-            addClosestRestockCheckpoint();
+            Pair<BlockPos, Vec3d> dumpChest = getBestChest(null);
+            checkpoints.add(0, new Pair(dumpChest.getRight(), new Pair("dump", dumpChest.getLeft())));
         }
         timeoutTicks = postRestockDelay.get();
         state = "Walking";
