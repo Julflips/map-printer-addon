@@ -2,16 +2,22 @@ package com.julflips.map_printer.utils;
 
 import meteordevelopment.meteorclient.events.game.GameLeftEvent;
 import meteordevelopment.meteorclient.events.packets.PacketEvent;
+import meteordevelopment.meteorclient.utils.misc.input.Input;
+import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.orbit.EventHandler;
 import meteordevelopment.orbit.EventPriority;
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.CarpetBlock;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
 import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
+import net.minecraft.registry.Registries;
 import net.minecraft.screen.slot.SlotActionType;
 import com.julflips.map_printer.mixininterfaces.IClientPlayerInteractionManager;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.Pair;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
@@ -59,6 +65,99 @@ public class Utils {
         return list;
     }
 
+    private static int stacksRequired(HashMap<Block, Integer> requiredItems) {
+        //Calculates how many slots are required for the dictionary {Block: Amount}
+        int stacks = 0;
+        for (int amount: requiredItems.values()) {
+            if (amount == 0) continue;
+            stacks += Math.ceil((float) amount / 64f);
+        }
+        return stacks;
+    }
+
+    public static ArrayList<Integer> getAvailableSlots(HashMap<Block, ArrayList<Pair<BlockPos, Vec3d>>> materials) {
+        ArrayList<Integer> slots = new ArrayList<>();
+        for (int slot = 0; slot < 36; slot++) {
+            if (mc.player.getInventory().getStack(slot).isEmpty()) {
+                slots.add(slot);
+                continue;
+            }
+            Block material = Registries.BLOCK.get(new Identifier(mc.player.getInventory().getStack(slot).getItem().toString()));
+            if (materials.containsKey(material)) {
+                slots.add(slot);
+            }
+        }
+        return slots;
+    }
+
+    public static HashMap<Block, Integer> getRequiredItems(BlockPos mapCorner, int linesPerRun, HashMap<Integer, Pair<Block, Integer>> carpetDict, int availableSlotsSize, Block[][] map) {
+        //Calculate the next items to restock
+        HashMap<Block, Integer> requiredItems = new HashMap<>();
+        for (Pair<Block, Integer> p : carpetDict.values()) {
+            requiredItems.put(p.getLeft(), 0);
+        }
+
+        //Iterate over map. Player has to be able to see the complete map area
+        boolean isStartSide = true;
+        for (int x = 0; x < 128; x += linesPerRun) {
+            for (int z = 0; z < 128; z++) {
+                for (int lineBonus = 0; lineBonus < linesPerRun; lineBonus++) {
+                    if (x + lineBonus > 127) break;
+                    int adjustedZ = z;
+                    if (!isStartSide) adjustedZ = 127 - z;
+                    //info("x: "+ (x + lineBonus) + " z: " +  adjustedZ);
+                    Block cureentBlock = mc.world.getBlockState(mapCorner.add(x + lineBonus, 0, adjustedZ)).getBlock();
+                    if (!(cureentBlock instanceof CarpetBlock)) {
+                        Block material = map[x+lineBonus][adjustedZ];
+                        requiredItems.put(material, requiredItems.get(material) + 1);
+                        //Check if the item fits into inventory. If not, undo the last increment and return
+                        if (stacksRequired(requiredItems) > availableSlotsSize) {
+                            requiredItems.put(material, requiredItems.get(material) - 1);
+                            return requiredItems;
+                        }
+                    }
+                }
+            }
+            isStartSide = !isStartSide;
+        }
+        return requiredItems;
+    }
+
+    public static Pair<ArrayList<Integer>, HashMap<Block, Integer>> getInvInformation(boolean debugPrints, HashMap<Block, Integer> requiredItems, ArrayList<Integer> availableSlots) {
+        //Return a list of slots to be dumped and a Hashmap of material-amount we can keep in the inventory
+        ArrayList<Integer> dumpSlots = new ArrayList<>();
+        HashMap<Block, Integer> materialInInv = new HashMap<>();
+        for (int slot : availableSlots) {
+            if (mc.player.getInventory().getStack(slot).isEmpty()) continue;
+            Block material = Registries.BLOCK.get(new Identifier(mc.player.getInventory().getStack(slot).getItem().toString()));
+            if (requiredItems.containsKey(material)) {
+                int requiredAmount = requiredItems.get(material);
+                int requiredModulusAmount = (requiredAmount - (requiredAmount / 64) * 64);
+                if (requiredModulusAmount == 0) requiredModulusAmount = 64;
+                int stackAmount = mc.player.getInventory().getStack(slot).getCount();
+                //info(material.getName().getString() + " | Required: " + requiredModulusAmount + " | Inv: " + stackAmount);
+                if (requiredAmount > 0 && requiredModulusAmount <= stackAmount) {
+                    int oldEntry = requiredItems.remove(material);
+                    requiredItems.put(material, Math.max(0, oldEntry - stackAmount));
+                    if (materialInInv.containsKey(material)) {
+                        oldEntry = materialInInv.remove(material);
+                        materialInInv.put(material, oldEntry + stackAmount);
+                    } else {
+                        materialInInv.put(material, stackAmount);
+                    }
+                    continue;
+                }
+            }
+            dumpSlots.add(slot);
+        }
+        if (debugPrints) {
+            for (Block material : materialInInv.keySet()) {
+                ChatUtils.info("Keeping: " + material.getName().getString() + " (" + materialInInv.get(material) + ")");
+            }
+        }
+        return new Pair(dumpSlots, materialInInv);
+    }
+
     public static String getMinecraftDirectory() {
         String os = System.getProperty("os.name").toLowerCase();
         String userHome = System.getProperty("user.home");
@@ -76,6 +175,16 @@ public class Utils {
         }
     }
 
+    public static int getIntervalStart(int pos) {
+        //Get top left corner of the map area for one dimension
+        return (int) Math.floor((float) (pos + 64) / 128f) * 128 - 64;
+    }
+
+    public static void setWPressed(boolean pressed) {
+        mc.options.forwardKey.setPressed(pressed);
+        Input.setKeyState(mc.options.forwardKey, pressed);
+    }
+
     public static int findHighestFreeSlot(InventoryS2CPacket packet) {
         for (int i = packet.getContents().size()-1; i > packet.getContents().size()-1-36; i--) {
             ItemStack stack = packet.getContents().get(i);
@@ -86,7 +195,7 @@ public class Utils {
         return -1;
     }
 
-    public static int swapIntoHotbar(int slot , ArrayList<Integer> hotBarSlots) {
+    public static void swapIntoHotbar(int slot , ArrayList<Integer> hotBarSlots) {
         HashMap<Item, Integer> itemFrequency = new HashMap<>();
         HashMap<Item, Integer> itemSlot = new HashMap<>();
         int targetSlot = hotBarSlots.get(0);
@@ -95,7 +204,7 @@ public class Utils {
         for (int i : hotBarSlots) {
             if (!mc.player.getInventory().getStack(i).isEmpty()) {
                 Item item = mc.player.getInventory().getStack(i).getItem();
-                if (!itemFrequency.keySet().contains(item)) {
+                if (!itemFrequency.containsKey(item)) {
                     itemFrequency.put(item, 1);
                     itemSlot.put(item, i);
                 } else {
@@ -113,7 +222,7 @@ public class Utils {
                 topFrequencyItems.add(item);
             }
         }
-        if (topFrequencyItems.size() > 0) {
+        if (!topFrequencyItems.isEmpty()) {
             Random random = new Random();
             Item item = topFrequencyItems.get(random.nextInt(topFrequencyItems.size()));
             targetSlot = itemSlot.get(item);
@@ -132,7 +241,6 @@ public class Utils {
         IClientPlayerInteractionManager cim = (IClientPlayerInteractionManager) mc.interactionManager;
         cim.clickSlot(mc.player.currentScreenHandler.syncId, slot, targetSlot, SlotActionType.SWAP, mc.player);
         //mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(0, slot, targetSlot, 0, SlotActionType.SWAP, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
-        return targetSlot;
     }
 
     public static void iterateBlocks(BlockPos startingPos, int horizontalRadius, int verticalRadius, BiConsumer<BlockPos, BlockState> function) {
@@ -148,14 +256,8 @@ public class Utils {
         for (int x = px - hRadius; x <= px + hRadius; x++) {
             for (int z = pz - hRadius; z <= pz + hRadius; z++) {
                 for (int y = py - vRadius; y <= py + vRadius; y++) {
-
                     blockPos.set(x, y, z);
                     BlockState blockState = mc.world.getBlockState(blockPos);
-
-                    int dx = Math.abs(x - px);
-                    int dy = Math.abs(y - py);
-                    int dz = Math.abs(z - pz);
-
                     function.accept(blockPos, blockState);
                 }
             }
