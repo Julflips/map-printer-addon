@@ -148,15 +148,6 @@ public class CarpetPrinter extends Module {
         .build()
     );
 
-    private final Setting<Integer> maxRestockRetries = sgGeneral.add(new IntSetting.Builder()
-        .name("max-restock-retries")
-        .description("How many times to search for a restock chest. Prevents infinite loop when inventory is full.")
-        .defaultValue(20)
-        .min(0)
-        .sliderRange(0, 100)
-        .build()
-    );
-
     private final Setting<Boolean> activationReset = sgGeneral.add(new BoolSetting.Builder()
         .name("activation-reset")
         .description("Disable if the bot should continue after reconnecting to the server.")
@@ -174,6 +165,13 @@ public class CarpetPrinter extends Module {
     private final Setting<Boolean> moveToFinishedFolder = sgGeneral.add(new BoolSetting.Builder()
         .name("move-to-finished-folder")
         .description("Moves finished NBT files into the finished-maps folder in the map-printer folder.")
+        .defaultValue(true)
+        .build()
+    );
+
+    private final Setting<Boolean> disableOnFinished = sgGeneral.add(new BoolSetting.Builder()
+        .name("disable-on-finished")
+        .description("Disables the printer when all nbt files are finished.")
         .defaultValue(true)
         .build()
     );
@@ -251,7 +249,6 @@ public class CarpetPrinter extends Module {
     int timeoutTicks;
     int closeResetChestTicks;
     int interactTimeout;
-    int retriesLeft;
     long lastTickTime;
     boolean pressedReset;
     boolean closeNextInvPacket;
@@ -304,7 +301,6 @@ public class CarpetPrinter extends Module {
         pressedReset = false;
         timeoutTicks = 0;
         interactTimeout = 0;
-        retriesLeft = maxRestockRetries.get();
         closeResetChestTicks = 0;
 
         mapFolder = new File(Utils.getMinecraftDirectory() + File.separator + "map-printer");
@@ -329,6 +325,7 @@ public class CarpetPrinter extends Module {
 
     private void refillInventory(HashMap<Block, Integer> invMaterial) {
         //Fills restockList with required items
+        restockList.clear();
         HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), carpetDict, availableSlots.size(), map);
         for (Block material : invMaterial.keySet()) {
             int oldAmount = requiredItems.remove(material);
@@ -564,8 +561,10 @@ public class CarpetPrinter extends Module {
                         foundMaterials = true;
                         int highestFreeSlot = Utils.findHighestFreeSlot(packet);
                         if (highestFreeSlot == -1) {
-                            info("No free slots found in inventory.");
-                            endRestocking();
+                            warning("No free slots found in inventory.");
+                            Pair<BlockPos, Vec3d> dumpChest = getBestChest(null);
+                            checkpoints.add(0, new Pair(dumpChest.getRight(), new Pair("dump", dumpChest.getLeft())));
+                            state = State.Walking;
                             return;
                         }
                         invActionPackets.add(new ClickSlotC2SPacket(packet.getSyncId(), 1, i, 1, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
@@ -731,18 +730,7 @@ public class CarpetPrinter extends Module {
             closeResetChestTicks--;
             if (closeResetChestTicks == 0) {
                 mc.player.closeHandledScreen();
-                mapFile = getNextMapFile();
-                if (mapFile == null) {
-                    info("All nbt files finished");
-                    toggle();
-                    return;
-                }
-                if (!loadNBTFiles()) {
-                    warning("Failed to read schematic file.");
-                    toggle();
-                    return;
-                }
-                state = State.Walking;
+                state = State.AwaitNBTFile;
             }
         }
 
@@ -769,6 +757,25 @@ public class CarpetPrinter extends Module {
                 timeoutTicks = invActionDelay.get();
             }
             return;
+        }
+
+        if (state == State.AwaitNBTFile) {
+            mapFile = getNextMapFile();
+            if (mapFile == null) {
+                if (disableOnFinished.get()) {
+                    info("All nbt files finished");
+                    toggle();
+                    return;
+                } else {
+                    return;
+                }
+            }
+            if (!loadNBTFiles()) {
+                warning("Failed to read schematic file.");
+                toggle();
+                return;
+            }
+            state = State.Walking;
         }
 
         if (pressedReset) {
@@ -932,15 +939,13 @@ public class CarpetPrinter extends Module {
     }
 
     private void endRestocking() {
-        if (restockList.get(0).getMiddle() > 0 && retriesLeft > 0) {
+        if (restockList.get(0).getMiddle() > 0) {
             warning("Not all necessary stacks restocked. Searching for another chest...");
             //Search for the next best chest
-            retriesLeft--;
             checkedChests.add(lastInteractedChest);
             Pair<BlockPos, Vec3d> bestRestockPos = getBestChest(getMaterialFromPos(lastInteractedChest));
             checkpoints.add(0, new Pair<>(bestRestockPos.getRight(), new Pair<>("refill", bestRestockPos.getLeft())));
         } else {
-            retriesLeft = maxRestockRetries.get();
             checkedChests.clear();
             restockList.remove(0);
             addClosestRestockCheckpoint();
@@ -1160,6 +1165,7 @@ public class CarpetPrinter extends Module {
         AwaitMapChestResponse,
         AwaitFinishedMapChestResponse,
         AwaitCartographyResponse,
+        AwaitNBTFile,
         Walking
     }
 
