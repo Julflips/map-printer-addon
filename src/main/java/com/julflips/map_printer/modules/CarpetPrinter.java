@@ -169,6 +169,13 @@ public class CarpetPrinter extends Module {
         .build()
     );
 
+    private final Setting<Boolean> disableOnFinished = sgGeneral.add(new BoolSetting.Builder()
+        .name("disable-on-finished")
+        .description("Disables the printer when all nbt files are finished.")
+        .defaultValue(true)
+        .build()
+    );
+
     private final Setting<Boolean> debugPrints = sgGeneral.add(new BoolSetting.Builder()
         .name("debug-prints")
         .description("Prints additional information.")
@@ -723,18 +730,7 @@ public class CarpetPrinter extends Module {
             closeResetChestTicks--;
             if (closeResetChestTicks == 0) {
                 mc.player.closeHandledScreen();
-                mapFile = getNextMapFile();
-                if (mapFile == null) {
-                    info("All nbt files finished");
-                    toggle();
-                    return;
-                }
-                if (!loadNBTFiles()) {
-                    warning("Failed to read schematic file.");
-                    toggle();
-                    return;
-                }
-                state = State.Walking;
+                state = State.AwaitNBTFile;
             }
         }
 
@@ -761,6 +757,25 @@ public class CarpetPrinter extends Module {
                 timeoutTicks = invActionDelay.get();
             }
             return;
+        }
+
+        if (state == State.AwaitNBTFile) {
+            mapFile = getNextMapFile();
+            if (mapFile == null) {
+                if (disableOnFinished.get()) {
+                    info("All nbt files finished");
+                    toggle();
+                    return;
+                } else {
+                    return;
+                }
+            }
+            if (!loadNBTFiles()) {
+                warning("Failed to read schematic file.");
+                toggle();
+                return;
+            }
+            state = State.Walking;
         }
 
         if (pressedReset) {
@@ -1150,6 +1165,7 @@ public class CarpetPrinter extends Module {
         AwaitMapChestResponse,
         AwaitFinishedMapChestResponse,
         AwaitCartographyResponse,
+        AwaitNBTFile,
         Walking
     }
 
