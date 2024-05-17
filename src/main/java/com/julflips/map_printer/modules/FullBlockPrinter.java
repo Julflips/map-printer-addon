@@ -253,6 +253,7 @@ public class FullBlockPrinter extends Module {
     boolean pressedReset;
     boolean closeNextInvPacket;
     State state;
+    State oldState;
     Pair<BlockHitResult, Vec3d> reset;
     Pair<BlockHitResult, Vec3d> cartographyTable;
     Pair<BlockHitResult, Vec3d> finishedMapChest;
@@ -707,6 +708,11 @@ public class FullBlockPrinter extends Module {
     private void onTick(TickEvent.Pre event) {
         if (state == null) return;
 
+        if (oldState != state) {
+            oldState = state;
+            if (debugPrints.get()) info("Changed state to " + state.name());
+        }
+
         long timeDifference = System.currentTimeMillis() - lastTickTime;
         int allowedPlacements = (int) Math.floor(timeDifference / placeDelay.get());
         lastTickTime += allowedPlacements * placeDelay.get();
@@ -886,11 +892,17 @@ public class FullBlockPrinter extends Module {
         for (int i = 0; i < allowedPlacements; i++) {
             AtomicReference<BlockPos> closestPos = new AtomicReference<>();
             final Vec3d currentGoal = goal;
-            Utils.iterateBlocks(mc.player.getBlockPos(), (int) Math.ceil(placeRange.get()) + 1, 0,((blockPos, blockState) -> {
+            BlockPos playerGroundPos = mc.player.getBlockPos().add(0 , mapCorner.getY() - mc.player.getBlockY(), 0);
+            Utils.iterateBlocks(playerGroundPos, (int) Math.ceil(placeRange.get()) + 1, 0,((blockPos, blockState) -> {
                 Double posDistance = PlayerUtils.distanceTo(blockPos);
-                if ((blockState.isAir()) && posDistance <= placeRange.get() && posDistance > 0.8
-                    && blockPos.getX() <= currentGoal.getX() + linesPerRun.get()-1 && isWithingMap(blockPos) && !placements.contains(blockPos)) {
-                    if (closestPos.get() == null || posDistance < PlayerUtils.distanceTo(closestPos.get())) {
+                if ((blockState.isAir()) && posDistance <= placeRange.get() && isWithingMap(blockPos)
+                    && blockPos.getX() <= currentGoal.getX() + linesPerRun.get()-1 && !placements.contains(blockPos)) {
+                    if (closestPos.get() == null) {
+                        closestPos.set(new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
+                        return;
+                    }
+                    if (blockPos.getX() < closestPos.get().getX() ||
+                        (blockPos.getX() == closestPos.get().getX() && blockPos.getZ() > closestPos.get().getZ())) {
                         closestPos.set(new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
                     }
                 }
@@ -1091,6 +1103,10 @@ public class FullBlockPrinter extends Module {
             }
 
             //info("MaxHeight: " + maxHeight + "MinX: " + minX + " MinZ: " + minZ);
+            info("Palette:");
+            for (Pair<Block, Integer> c : blockPaletteDict.values()) {
+                info(c.getLeft().getName().getString());
+            }
             return true;
         } catch (Exception e) {
             e.printStackTrace();
