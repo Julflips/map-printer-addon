@@ -91,13 +91,15 @@ public class Utils {
         return slots;
     }
 
-    public static HashMap<Block, Integer> getRequiredItems(BlockPos mapCorner, int linesPerRun, HashMap<Integer, Pair<Block, Integer>> carpetDict, int availableSlotsSize, Block[][] map) {
-        //Calculate the next items to restock
+    public static HashMap<Block, Integer> getRequiredItems(BlockPos mapCorner, int linesPerRun, HashMap<Integer, Pair<Block, Integer>> blockPaletteDict, int availableSlotsSize, Block[][] map) {
         HashMap<Block, Integer> requiredItems = new HashMap<>();
-        for (Pair<Block, Integer> p : carpetDict.values()) {
+        ArrayList<Block> mapMaterials = new ArrayList<>();
+        for (Pair<Block, Integer> p : blockPaletteDict.values()) {
             requiredItems.put(p.getLeft(), 0);
+            mapMaterials.add(p.getLeft());
         }
 
+        //Calculate the next items to restock
         //Iterate over map. Player has to be able to see the complete map area
         boolean isStartSide = true;
         for (int x = 0; x < 128; x += linesPerRun) {
@@ -107,8 +109,8 @@ public class Utils {
                     int adjustedZ = z;
                     if (!isStartSide) adjustedZ = 127 - z;
                     //info("x: "+ (x + lineBonus) + " z: " +  adjustedZ);
-                    Block cureentBlock = mc.world.getBlockState(mapCorner.add(x + lineBonus, 0, adjustedZ)).getBlock();
-                    if (!(cureentBlock instanceof CarpetBlock)) {
+                    Block currentBlock = mc.world.getBlockState(mapCorner.add(x + lineBonus, 0, adjustedZ)).getBlock();
+                    if (!mapMaterials.contains(currentBlock)) {
                         Block material = map[x+lineBonus][adjustedZ];
                         requiredItems.put(material, requiredItems.get(material) + 1);
                         //Check if the item fits into inventory. If not, undo the last increment and return

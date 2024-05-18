@@ -262,7 +262,7 @@ public class CarpetPrinter extends Module {
     BlockPos tempChestPos;
     BlockPos lastInteractedChest;
     InventoryS2CPacket toBeHandledInvPacket;
-    HashMap<Integer, Pair<Block, Integer>> carpetDict;             //Maps palette block id to the Minecraft block and amount
+    HashMap<Integer, Pair<Block, Integer>> blockPaletteDict;       //Maps palette block id to the Minecraft block and amount
     HashMap<Block, ArrayList<Pair<BlockPos, Vec3d>>> materialDict; //Maps block to the chest pos and the open position
     ArrayList<Integer> availableSlots;
     ArrayList<Integer> availableHotBarSlots;
@@ -326,7 +326,7 @@ public class CarpetPrinter extends Module {
     private void refillInventory(HashMap<Block, Integer> invMaterial) {
         //Fills restockList with required items
         restockList.clear();
-        HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), carpetDict, availableSlots.size(), map);
+        HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), blockPaletteDict, availableSlots.size(), map);
         for (Block material : invMaterial.keySet()) {
             int oldAmount = requiredItems.remove(material);
             requiredItems.put(material, oldAmount - invMaterial.get(material));
@@ -465,7 +465,7 @@ public class CarpetPrinter extends Module {
                     }
                     info("Inventory slots available for building: " + availableSlots);
 
-                    HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), carpetDict, availableSlots.size(), map);
+                    HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), blockPaletteDict, availableSlots.size(), map);
                     Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(debugPrints.get(), requiredItems, availableSlots);
                     if (invInformation.getLeft().size() != 0) {
                         Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
@@ -578,7 +578,7 @@ public class CarpetPrinter extends Module {
                 break;
             case AwaitDumpResponse:
                 interactTimeout = 0;
-                HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), carpetDict, availableSlots.size(), map);
+                HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), blockPaletteDict, availableSlots.size(), map);
                 Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(debugPrints.get(), requiredItems, availableSlots);
                 for (int slot : invInformation.getLeft()) {
                     //info("Initial slot: " + slot);
@@ -747,7 +747,7 @@ public class CarpetPrinter extends Module {
                     endRestocking();
                 }
                 if (state.equals(State.AwaitDumpResponse)) {
-                    HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), carpetDict, availableSlots.size(), map);
+                    HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), blockPaletteDict, availableSlots.size(), map);
                     Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(debugPrints.get(), requiredItems, availableSlots);
                     refillInventory(invInformation.getRight());
                     state = State.Walking;
@@ -1039,13 +1039,13 @@ public class CarpetPrinter extends Module {
             NbtCompound nbt = NbtIo.readCompressed(mapFile.toPath(), sizeTracker);
             //Extracting the palette
             NbtList paletteList  = (NbtList) nbt.get("palette");
-            carpetDict = new HashMap<>();
+            blockPaletteDict = new HashMap<>();
             for (int i = 0; i < paletteList.size(); i++) {
                 NbtCompound block = paletteList.getCompound(i);
                 String blockName = block.getString("Name");
                 Block material = Registries.BLOCK.get(new Identifier(blockName));
                 if (material instanceof CarpetBlock) {
-                    carpetDict.put(i, new Pair(Registries.BLOCK.get(new Identifier(blockName)), 0));
+                    blockPaletteDict.put(i, new Pair(Registries.BLOCK.get(new Identifier(blockName)), 0));
                 }
             }
 
@@ -1057,15 +1057,15 @@ public class CarpetPrinter extends Module {
             for (int i = 0; i < blockList.size(); i++) {
                 NbtCompound block = blockList.getCompound(i);
                 int blockId = block.getInt("state");
-                if (!carpetDict.containsKey(blockId)) continue;
-                carpetDict.put(blockId, new Pair(carpetDict.get(blockId).getLeft(), carpetDict.get(blockId).getRight() + 1));
+                if (!blockPaletteDict.containsKey(blockId)) continue;
+                blockPaletteDict.put(blockId, new Pair(blockPaletteDict.get(blockId).getLeft(), blockPaletteDict.get(blockId).getRight() + 1));
                 NbtList pos = block.getList("pos", 3);
                 if (pos.getInt(1) > maxHeight) maxHeight = pos.getInt(1);
                 if (pos.getInt(0) < minX) minX = pos.getInt(0);
                 if (pos.getInt(2) < minZ) minZ = pos.getInt(2);
             }
             info("Requirements: ");
-            for (Pair<Block, Integer> p: carpetDict.values()) {
+            for (Pair<Block, Integer> p: blockPaletteDict.values()) {
                 info(p.getLeft().getName().getString() + ": " + p.getRight());
             }
 
@@ -1073,13 +1073,13 @@ public class CarpetPrinter extends Module {
             map = new Block[128][128];
             for (int i = 0; i < blockList.size(); i++) {
                 NbtCompound block = blockList.getCompound(i);
-                if (!carpetDict.containsKey(block.getInt("state"))) continue;
+                if (!blockPaletteDict.containsKey(block.getInt("state"))) continue;
                 NbtList pos = block.getList("pos", 3);
                 int x = pos.getInt(0) - minX;
                 int y = pos.getInt(1);
                 int z = pos.getInt(2) - minZ;
                 if (y == maxHeight && x < map.length && z < map.length & x >= 0 && z >= 0) {
-                    map[x][z] = carpetDict.get(block.getInt("state")).getLeft();
+                    map[x][z] = blockPaletteDict.get(block.getInt("state")).getLeft();
                 }
             }
             //Check if a full 128x128 map is present
