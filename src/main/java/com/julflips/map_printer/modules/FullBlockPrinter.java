@@ -386,8 +386,8 @@ public class FullBlockPrinter extends Module {
                 }
             }
             if (lineFinished) continue;
-            Vec3d cp1 = mapCorner.toCenterPos().add(x,0,0);
-            Vec3d cp2 = mapCorner.toCenterPos().add(x,0,127);
+            Vec3d cp1 = mapCorner.toCenterPos().add(x+linesPerRun.get()-1,0,-1);
+            Vec3d cp2 = mapCorner.toCenterPos().add(x+linesPerRun.get()-1,0,128);
             if (isStartSide) {
                 checkpoints.add(new Pair(cp1, new Pair("", null)));
                 checkpoints.add(new Pair(cp2, new Pair("", null)));
@@ -896,13 +896,13 @@ public class FullBlockPrinter extends Module {
             Utils.iterateBlocks(playerGroundPos, (int) Math.ceil(placeRange.get()) + 1, 0,((blockPos, blockState) -> {
                 Double posDistance = PlayerUtils.distanceTo(blockPos);
                 if ((blockState.isAir()) && posDistance <= placeRange.get() && isWithingMap(blockPos)
-                    && blockPos.getX() <= currentGoal.getX() + linesPerRun.get()-1 && !placements.contains(blockPos)) {
+                    && blockPos.getX() <= currentGoal.getX() && !placements.contains(blockPos)) {
                     if (closestPos.get() == null) {
-                        closestPos.set(new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
+                       if (!mc.world.getBlockState(blockPos.west()).isAir()) closestPos.set(new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
                         return;
                     }
-                    if (blockPos.getX() < closestPos.get().getX() ||
-                        (blockPos.getX() == closestPos.get().getX() && blockPos.getZ() > closestPos.get().getZ())) {
+                    if (!mc.world.getBlockState(blockPos.west()).isAir() && (blockPos.getZ() < closestPos.get().getZ() ||
+                        (blockPos.getZ() == closestPos.get().getZ() && blockPos.getX() < closestPos.get().getX()))) {
                         closestPos.set(new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
                     }
                 }
