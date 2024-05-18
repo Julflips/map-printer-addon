@@ -1063,7 +1063,7 @@ public class FullBlockPrinter extends Module {
             NbtList blockList  = (NbtList) nbt.get("blocks");
             int maxHeight = Integer.MIN_VALUE;
             int minX = Integer.MAX_VALUE;
-            int minZ = Integer.MAX_VALUE;
+            int minZ = Integer.MIN_VALUE;
             for (int i = 0; i < blockList.size(); i++) {
                 NbtCompound block = blockList.getCompound(i);
                 int blockId = block.getInt("state");
@@ -1072,8 +1072,9 @@ public class FullBlockPrinter extends Module {
                 NbtList pos = block.getList("pos", 3);
                 if (pos.getInt(1) > maxHeight) maxHeight = pos.getInt(1);
                 if (pos.getInt(0) < minX) minX = pos.getInt(0);
-                if (pos.getInt(2) < minZ) minZ = pos.getInt(2);
+                if (pos.getInt(2) > minZ) minZ = pos.getInt(2);
             }
+            minZ -= 127;
             info("Requirements: ");
             for (Pair<Block, Integer> p: blockPaletteDict.values()) {
                 info(p.getLeft().getName().getString() + ": " + p.getRight());
