@@ -812,7 +812,7 @@ public class FullBlockPrinter extends Module {
         Vec3d goal = checkpoints.get(0).getLeft();
         if (PlayerUtils.distanceTo(goal.add(0,mc.player.getY()-goal.y,0)) < checkpointBuffer.get()) {
             Pair<String, BlockPos> checkpointAction = checkpoints.get(0).getRight();
-            if (debugPrints.get() && checkpointAction.getLeft() != null && checkpointAction.getRight() != null) info("Reached " + checkpointAction.getLeft());
+            if (debugPrints.get() && checkpointAction.getLeft() != null) info("Reached " + checkpointAction.getLeft());
             checkpoints.remove(0);
             mc.player.setPosition(goal.getX(), mc.player.getY(), goal.getZ());
             mc.player.setVelocity(0,0,0);
@@ -886,7 +886,7 @@ public class FullBlockPrinter extends Module {
         } else if (sprinting.get() != SprintMode.Off) {
             mc.player.setSprinting(true);
         }
-        if (nextAction == "refill" || nextAction == "dump") return;
+        if (nextAction == "refill" || nextAction == "dump" || nextAction == "walkRestock") return;
 
         ArrayList<BlockPos> placements = new ArrayList<>();
         for (int i = 0; i < allowedPlacements; i++) {
@@ -945,8 +945,17 @@ public class FullBlockPrinter extends Module {
         }
         info("No "+ material.getName().getString() + " found in inventory. Resetting...");
         Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
-        checkpoints.add(0, new Pair(mc.player.getPos(), new Pair("sprint", null)));
+        Vec3d pathCheckpoint1 = mc.player.getPos().offset(Direction.WEST, linesPerRun.get());
+        Vec3d pathCheckpoint2 = new Vec3d(pathCheckpoint1.getX(), pathCheckpoint1.y, mapCorner.north().toCenterPos().getZ());
+        Vec3d pathCheckpoint3 = new Vec3d(mapCorner.east(63).toCenterPos().getX(), pathCheckpoint2.y, pathCheckpoint2.getZ());
+        checkpoints.add(0, new Pair(mc.player.getPos(), new Pair("walkRestock", null)));
+        checkpoints.add(0, new Pair(pathCheckpoint1, new Pair("walkRestock", null)));
+        checkpoints.add(0, new Pair(pathCheckpoint2, new Pair("walkRestock", null)));
+        checkpoints.add(0, new Pair(pathCheckpoint3, new Pair("walkRestock", null)));
         checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
+        checkpoints.add(0, new Pair(pathCheckpoint3, new Pair("walkRestock", null)));
+        checkpoints.add(0, new Pair(pathCheckpoint2, new Pair("walkRestock", null)));
+        checkpoints.add(0, new Pair(pathCheckpoint1, new Pair("walkRestock", null)));
         return false;
     }
 
