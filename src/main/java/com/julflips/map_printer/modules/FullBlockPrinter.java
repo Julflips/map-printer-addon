@@ -409,7 +409,7 @@ public class FullBlockPrinter extends Module {
         if (!(event.packet instanceof PlayerInteractBlockC2SPacket packet) || state == null) return;
         switch (state) {
             case SelectingMapArea:
-                BlockPos hitPos = packet.getBlockHitResult().getBlockPos().up();
+                BlockPos hitPos = packet.getBlockHitResult().getBlockPos().offset(packet.getBlockHitResult().getSide());
                 int adjustedX = Utils.getIntervalStart(hitPos.getX());
                 int adjustedZ = Utils.getIntervalStart(hitPos.getZ());
                 mapCorner = new BlockPos(adjustedX, hitPos.getY(), adjustedZ);
@@ -442,7 +442,7 @@ public class FullBlockPrinter extends Module {
                 break;
             case SelectingChests:
                 blockPos = packet.getBlockHitResult().getBlockPos();
-                if (blockPos.up().equals(mapCorner)) {
+                if (blockPos.offset(packet.getBlockHitResult().getSide()).equals(mapCorner)) {
                     //Check if requirements to start building are met
                     if (materialDict.size() == 0) {
                         warning("No Material Chests selected!");
