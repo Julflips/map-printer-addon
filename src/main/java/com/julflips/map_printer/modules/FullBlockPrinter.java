@@ -252,6 +252,7 @@ public class FullBlockPrinter extends Module {
     long lastTickTime;
     boolean pressedReset;
     boolean closeNextInvPacket;
+    boolean atEdge;
     State state;
     State oldState;
     Pair<BlockHitResult, Vec3d> reset;
@@ -300,6 +301,7 @@ public class FullBlockPrinter extends Module {
         toBeHandledInvPacket = null;
         closeNextInvPacket = false;
         pressedReset = false;
+        atEdge = false;
         timeoutTicks = 0;
         interactTimeout = 0;
         closeResetChestTicks = 0;
@@ -406,6 +408,15 @@ public class FullBlockPrinter extends Module {
 
     @EventHandler
     private void onSendPacket(PacketEvent.Send event) {
+        if (event.packet instanceof PlayerMoveC2SPacket) {
+            if (mc.world.getBlockState(mc.player.getBlockPos().down()).isAir() && state == State.Walking && checkpoints.get(0).getRight().getLeft() == "") {
+                atEdge = true;
+                Utils.setWPressed(false);
+                mc.player.setVelocity(0,0,0);
+            } else {
+                atEdge = false;
+            }
+        }
         if (!(event.packet instanceof PlayerInteractBlockC2SPacket packet) || state == null) return;
         switch (state) {
             case SelectingMapArea:
@@ -808,7 +819,7 @@ public class FullBlockPrinter extends Module {
         }
 
         if (!state.equals(State.Walking)) return;
-        Utils.setWPressed(true);
+        if (!atEdge) Utils.setWPressed(true);
         Vec3d goal = checkpoints.get(0).getLeft();
         if (PlayerUtils.distanceTo(goal.add(0,mc.player.getY()-goal.y,0)) < checkpointBuffer.get()) {
             Pair<String, BlockPos> checkpointAction = checkpoints.get(0).getRight();
@@ -899,7 +910,7 @@ public class FullBlockPrinter extends Module {
                     && blockPos.getX() <= currentGoal.getX() && !placements.contains(blockPos)) {
                     if (closestPos.get() == null) {
                        if (!mc.world.getBlockState(blockPos.west()).isAir()) closestPos.set(new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
-                        return;
+                       return;
                     }
                     if (!mc.world.getBlockState(blockPos.west()).isAir() && (blockPos.getZ() < closestPos.get().getZ() ||
                         (blockPos.getZ() == closestPos.get().getZ() && blockPos.getX() < closestPos.get().getX()))) {
