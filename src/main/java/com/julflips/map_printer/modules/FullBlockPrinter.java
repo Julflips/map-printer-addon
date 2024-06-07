@@ -130,6 +130,15 @@ public class FullBlockPrinter extends Module {
         .build()
     );
 
+    private final Setting<Integer> tntDistance = sgGeneral.add(new IntSetting.Builder()
+        .name("tnt-distance")
+        .description("How many blocks the bot should stay away from the dropped tnt (z axis).")
+        .defaultValue(10)
+        .min(1)
+        .sliderRange(1, 30)
+        .build()
+    );
+
     private final Setting<Integer> resetChestCloseDelay = sgGeneral.add(new IntSetting.Builder()
         .name("reset-chest-close-delay")
         .description("How many ticks to wait before closing the reset trap chest again.")
@@ -151,6 +160,13 @@ public class FullBlockPrinter extends Module {
     private final Setting<Boolean> activationReset = sgGeneral.add(new BoolSetting.Builder()
         .name("activation-reset")
         .description("Disable if the bot should continue after reconnecting to the server.")
+        .defaultValue(true)
+        .build()
+    );
+
+    private final Setting<Boolean> startResetNorth = sgGeneral.add(new BoolSetting.Builder()
+        .name("start-reset-north")
+        .description("If true, use the North Reset Trapped Chest first. Use south if not.")
         .defaultValue(true)
         .build()
     );
@@ -253,10 +269,12 @@ public class FullBlockPrinter extends Module {
     boolean pressedReset;
     boolean closeNextInvPacket;
     boolean atEdge;
+    boolean nextResetNorth;
     State state;
     State oldState;
     Vec3d restockEntrance;
-    Pair<BlockHitResult, Vec3d> reset;
+    Pair<BlockHitResult, Vec3d> northReset;
+    Pair<BlockHitResult, Vec3d> southReset;
     Pair<BlockHitResult, Vec3d> cartographyTable;
     Pair<BlockHitResult, Vec3d> finishedMapChest;
     ArrayList<Pair<BlockPos, Vec3d>> mapMaterialChests;
@@ -292,7 +310,8 @@ public class FullBlockPrinter extends Module {
         checkpoints = new ArrayList<>();
         startedFiles = new ArrayList<>();
         invActionPackets = new ArrayList<>();
-        reset = null;
+        northReset = null;
+        southReset = null;
         mapCorner = null;
         lastInteractedChest = null;
         cartographyTable = null;
@@ -303,6 +322,7 @@ public class FullBlockPrinter extends Module {
         closeNextInvPacket = false;
         pressedReset = false;
         atEdge = false;
+        nextResetNorth = true;
         timeoutTicks = 0;
         interactTimeout = 0;
         closeResetChestTicks = 0;
@@ -425,15 +445,23 @@ public class FullBlockPrinter extends Module {
                 int adjustedX = Utils.getIntervalStart(hitPos.getX());
                 int adjustedZ = Utils.getIntervalStart(hitPos.getZ());
                 mapCorner = new BlockPos(adjustedX, hitPos.getY(), adjustedZ);
-                restockEntrance = new Vec3d(mapCorner.east(63).toCenterPos().getX(), mapCorner.up().getY(), mapCorner.toCenterPos().getZ());
-                state = State.SelectingReset;
-                info("Map Area selected. Press the §aReset Trapped Chest §7used to remove the built map");
+                restockEntrance = new Vec3d(mapCorner.east(63).toCenterPos().getX(), mapCorner.up().getY(), mapCorner.north().toCenterPos().getZ());
+                state = State.SelectingNorthReset;
+                info("Map Area selected. Press the §aNorth Reset Trapped Chest §7used to remove the built map");
                 break;
-            case SelectingReset:
+            case SelectingNorthReset:
                 BlockPos blockPos = packet.getBlockHitResult().getBlockPos();
                 if (mc.world.getBlockState(blockPos).getBlock() instanceof TrappedChestBlock) {
-                    reset = new Pair<>(packet.getBlockHitResult(), mc.player.getPos());
-                    info("Reset Trapped Chest selected. Select the §aCartography Table.");
+                    northReset = new Pair<>(packet.getBlockHitResult(), mc.player.getPos());
+                    info("North Reset Trapped Chest selected. Select the §aSouth Reset Trapped Chest.");
+                    state = State.SelectingSouthReset;
+                }
+                break;
+            case SelectingSouthReset:
+                blockPos = packet.getBlockHitResult().getBlockPos();
+                if (mc.world.getBlockState(blockPos).getBlock() instanceof TrappedChestBlock) {
+                    southReset = new Pair<>(packet.getBlockHitResult(), mc.player.getPos());
+                    info("South Reset Trapped Chest selected. Select the §aCartography Table.");
                     state = State.SelectingTable;
                 }
                 break;
@@ -687,12 +715,15 @@ public class FullBlockPrinter extends Module {
                         break;
                     }
                 }
-                checkpoints.add(new Pair(reset.getRight(), new Pair("reset", null)));
+                if (nextResetNorth) {
+                    checkpoints.add(new Pair(northReset.getRight(), new Pair("reset", null)));
+                } else {
+                    checkpoints.add(new Pair(southReset.getRight(), new Pair("reset", null)));
+                }
                 state = State.Walking;
                 break;
             case AwaitResetResponse:
                 interactTimeout = 0;
-                timeoutTicks = resetDelay.get();
                 pressedReset = true;
                 closeNextInvPacket = false;
                 closeResetChestTicks = resetChestCloseDelay.get();
@@ -719,6 +750,25 @@ public class FullBlockPrinter extends Module {
         mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, sourceSlot, 0, SlotActionType.PICKUP , new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
     }
 
+    private int getFirstIntactRow() {
+        //ToDO
+        for (int z = 0; z < map[0].length; z++) {
+            int adjustedZ = z;
+            if (!nextResetNorth) adjustedZ = map[0].length - z - 1;
+            for (int x = 0; x < map.length; x++) {
+                BlockPos pos = new BlockPos(mapCorner.add(x, 0, adjustedZ));
+                if (mc.world.getBlockState(pos).isAir()) {
+                    return adjustedZ;
+                }
+            }
+        }
+        if (nextResetNorth) {
+            return map[0].length;
+        } else {
+            return 0;
+        }
+    }
+
     @EventHandler
     private void onTick(TickEvent.Pre event) {
         if (state == null) return;
@@ -737,8 +787,11 @@ public class FullBlockPrinter extends Module {
             if (interactTimeout == 0) {
                 info("Interaction timed out. Interacting again...");
                 if (pressedReset) {
-                    interactWithBlock(reset.getLeft());
-                    timeoutTicks = resetDelay.get();
+                    if (nextResetNorth) {
+                        interactWithBlock(northReset.getLeft());
+                    } else {
+                        interactWithBlock(southReset.getLeft());
+                    }
                 } else if (state == State.AwaitCartographyResponse) {
                     interactWithBlock(cartographyTable.getLeft());
                 } else {
@@ -751,7 +804,7 @@ public class FullBlockPrinter extends Module {
             closeResetChestTicks--;
             if (closeResetChestTicks == 0) {
                 mc.player.closeHandledScreen();
-                state = State.AwaitNBTFile;
+                state = State.AvoidTNT;
             }
         }
 
@@ -778,6 +831,18 @@ public class FullBlockPrinter extends Module {
                 timeoutTicks = invActionDelay.get();
             }
             return;
+        }
+
+        if (state == State.AvoidTNT) {
+            int intactRow = getFirstIntactRow();
+            if (intactRow == 0) {
+                //ToDO
+                info("Walk back ToDo");
+                return;
+            }
+            Vec3d targetPos = mapCorner.add(map.length/2, 1, intactRow).toCenterPos();
+            checkpoints.add(0, new Pair<>(targetPos, new Pair<>("switchAvoidTNT", null)));
+            state = State.Walking;
         }
 
         if (state == State.AwaitNBTFile) {
@@ -859,9 +924,17 @@ public class FullBlockPrinter extends Module {
                     return;
                 case "reset":
                     info("Resetting...");
-                    interactWithBlock(reset.getLeft());
+                    if (nextResetNorth) {
+                        interactWithBlock(northReset.getLeft());
+                        lastInteractedChest = northReset.getLeft().getBlockPos();
+                    } else {
+                        interactWithBlock(southReset.getLeft());
+                        lastInteractedChest = southReset.getLeft().getBlockPos();
+                    }
                     state = State.AwaitResetResponse;
-                    lastInteractedChest = reset.getLeft().getBlockPos();
+                    return;
+                case "switchAvoidTNT":
+                    state = State.AvoidTNT;
                     return;
                 case "dump":
                     interactWithBlock(checkpointAction.getRight());
@@ -1175,9 +1248,13 @@ public class FullBlockPrinter extends Module {
         }
 
         if (renderSpecialInteractions.get()) {
-            if (reset != null) {
-                event.renderer.box(reset.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines, 0);
-                event.renderer.box(reset.getRight().x-indicatorSize.get(), reset.getRight().y-indicatorSize.get(), reset.getRight().z-indicatorSize.get(), reset.getRight().getX()+indicatorSize.get(), reset.getRight().getY()+indicatorSize.get(), reset.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
+            if (northReset != null) {
+                event.renderer.box(northReset.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines, 0);
+                event.renderer.box(northReset.getRight().x-indicatorSize.get(), northReset.getRight().y-indicatorSize.get(), northReset.getRight().z-indicatorSize.get(), northReset.getRight().getX()+indicatorSize.get(), northReset.getRight().getY()+indicatorSize.get(), northReset.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
+            }
+            if (southReset != null) {
+                event.renderer.box(southReset.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines, 0);
+                event.renderer.box(southReset.getRight().x-indicatorSize.get(), northReset.getRight().y-indicatorSize.get(), southReset.getRight().z-indicatorSize.get(), southReset.getRight().getX()+indicatorSize.get(), southReset.getRight().getY()+indicatorSize.get(), southReset.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
             if (cartographyTable != null) {
                 event.renderer.box(cartographyTable.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines, 0);
@@ -1192,7 +1269,8 @@ public class FullBlockPrinter extends Module {
 
     private enum State {
         AwaitContent,
-        SelectingReset,
+        SelectingNorthReset,
+        SelectingSouthReset,
         SelectingChests,
         SelectingFinishedMapChest,
         SelectingTable,
@@ -1204,6 +1282,7 @@ public class FullBlockPrinter extends Module {
         AwaitFinishedMapChestResponse,
         AwaitCartographyResponse,
         AwaitNBTFile,
+        AvoidTNT,
         Walking
     }
 
