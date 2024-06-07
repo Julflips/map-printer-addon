@@ -76,6 +76,13 @@ public class CarpetPrinter extends Module {
         .build()
     );
 
+    private final Setting<Boolean> startCornerSide = sgGeneral.add(new BoolSetting.Builder()
+        .name("start-corner-side")
+        .description("Starts building map on the north side (south if set to false).")
+        .defaultValue(true)
+        .build()
+    );
+
     private final Setting<Integer> mapFillSquareSize = sgGeneral.add(new IntSetting.Builder()
         .name("map-fill-square-size")
         .description("The radius of the square the bot fill walk to explore the map.")
@@ -367,10 +374,10 @@ public class CarpetPrinter extends Module {
         checkpoints.add(0, new Pair(restockPos.getRight(), new Pair("refill", restockPos.getLeft())));
     }
 
-    private void calculateBuildingPath() {
+    private void calculateBuildingPath(boolean cornerSide, boolean sprintFirst) {
         //Iterate over map and skip completed lines. Player has to be able to see the complete map area
         //Fills checkpoints list
-        boolean isStartSide = true;
+        boolean isStartSide = cornerSide;
         checkpoints.clear();
         for (int x = 0; x < 128; x+=linesPerRun.get()) {
             boolean allCarpet = true;
@@ -389,14 +396,14 @@ public class CarpetPrinter extends Module {
             Vec3d cp2 = mapCorner.toCenterPos().add(x,0,127);
             if (isStartSide) {
                 checkpoints.add(new Pair(cp1, new Pair("", null)));
-                checkpoints.add(new Pair(cp2, new Pair("", null)));
+                checkpoints.add(new Pair(cp2, new Pair("lineEnd", null)));
             } else {
                 checkpoints.add(new Pair(cp2, new Pair("", null)));
-                checkpoints.add(new Pair(cp1, new Pair("", null)));
+                checkpoints.add(new Pair(cp1, new Pair("lineEnd", null)));
             }
             isStartSide = !isStartSide;
         }
-        if (checkpoints.size() > 0) {
+        if (checkpoints.size() > 0 && sprintFirst) {
             //Make player sprint to the start of the map
             Pair<Vec3d, Pair<String, BlockPos>>firstPoint = checkpoints.remove(0);
             checkpoints.add(0, new Pair(firstPoint.getLeft(), new Pair("sprint", firstPoint.getRight().getRight())));
@@ -456,7 +463,7 @@ public class CarpetPrinter extends Module {
                         return;
                     }
                     Utils.setWPressed(true);
-                    calculateBuildingPath();
+                    calculateBuildingPath(startCornerSide.get(), true);
                     availableSlots = Utils.getAvailableSlots(materialDict);
                     for (int slot : availableSlots) {
                         if (slot < 9) {
@@ -780,7 +787,7 @@ public class CarpetPrinter extends Module {
 
         if (pressedReset) {
             pressedReset = false;
-            calculateBuildingPath();
+            calculateBuildingPath(startCornerSide.get(), true);
             Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
             checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
             Utils.setWPressed(true);
@@ -811,6 +818,10 @@ public class CarpetPrinter extends Module {
             mc.player.setPosition(goal.getX(), mc.player.getY(), goal.getZ());
             mc.player.setVelocity(0,0,0);
             switch (checkpointAction.getLeft()) {
+                case "lineEnd":
+                    boolean atCornerSide = goal.z == mapCorner.toCenterPos().z;
+                    calculateBuildingPath(atCornerSide, false);
+                    break;
                 case "mapMaterialChest":
                     BlockPos mapMaterialChest = getBestChest(Blocks.CARTOGRAPHY_TABLE).getLeft();
                     interactWithBlock(mapMaterialChest);
@@ -852,30 +863,24 @@ public class CarpetPrinter extends Module {
                     return;
             }
             if (checkpoints.size() == 0) {
-                calculateBuildingPath();
-                if (checkpoints.size() == 0) {
-                    info("Finished building map");
-                    Pair<BlockPos, Vec3d> bestChest = getBestChest(Blocks.CARTOGRAPHY_TABLE);
-                    checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest.getLeft())));
-                    try {
-                        if (moveToFinishedFolder.get()) mapFile.renameTo(new File(mapFile.getParentFile().getAbsolutePath()+File.separator+"_finished_maps"+File.separator+mapFile.getName()));
-                    } catch (Exception e) {
-                        warning("Failed to move map file " + mapFile.getName() + " to finished map folder");
-                        e.printStackTrace();
-                    }
-                } else {
-                    info("Patching up missed parts of the map...");
-                }
-
-                Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
+                info("Finished building map");
+                Pair<BlockPos, Vec3d> bestChest = getBestChest(Blocks.CARTOGRAPHY_TABLE);
+                checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest.getLeft())));
+                bestChest = getBestChest(null);
                 checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
+                try {
+                    if (moveToFinishedFolder.get()) mapFile.renameTo(new File(mapFile.getParentFile().getAbsolutePath()+File.separator+"_finished_maps"+File.separator+mapFile.getName()));
+                } catch (Exception e) {
+                    warning("Failed to move map file " + mapFile.getName() + " to finished map folder");
+                    e.printStackTrace();
+                }
             }
             goal = checkpoints.get(0).getLeft();
         }
         mc.player.setYaw((float) Rotations.getYaw(goal));
         String nextAction = checkpoints.get(0).getRight().getLeft();
 
-        if (nextAction == "" && sprinting.get() != SprintMode.Always) {
+        if ((nextAction == "" || nextAction == "lineEnd") && sprinting.get() != SprintMode.Always) {
             mc.player.setSprinting(false);
         } else if (sprinting.get() != SprintMode.Off) {
             mc.player.setSprinting(true);
