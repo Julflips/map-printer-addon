@@ -1,7 +1,7 @@
 
 # Map Printer Addon
 
-Map Printer Addon is an addon for the meteor client allowing you to build 2D carpet mapart from NBT files. It works fully autonomous as long as the necessary materials are provided. Its main focus is reliability and compatibility with strict anti cheat servers.
+Map Printer Addon is an addon for the meteor client allowing you to build 2D carpet mapart from NBT files. It works 100% autonomously as long as the necessary materials are provided. Its main focus is reliability and compatibility with strict anti-cheat servers.
 ## Setup
 To get the program running we first need to build an area where we will build one 1x1 map at a time. An area could look like this:
 ![Setup](Screenshots/MapArea.png)
@@ -13,7 +13,7 @@ Make sure it fulfills the following points:
 - The fluid dispensers and lighting should cover the whole 128x128 MapArea.
 - Avoid having grass blocks on the map area since it can lead to mobs spawning in certain biomes.
 - The restock station should have a DumpChest, FinishedMapChest, MapMaterialChest, Reset Trapped Chest, and Cartography Table. I will explain later what the terms mean
-- Avoid having the bot pick up old carpets while restocking. If you choose the make restock station on the map area use lava at the restock station to delete the old carpets. For the other version use slabs to prevent the water from washing carpets into the station.
+- Avoid having the bot pick up old carpets while restocking. If you choose to build the restock station on the map area use lava at the restock station to delete the old carpets. For the other version use slabs to prevent the water from washing carpets into the station.
 - Make sure the server loads the entire map when resetting
 - If Phantoms are on you need a glass ceiling.
 - If you play on hard difficulty don't forget the regeneration beacon
@@ -25,7 +25,7 @@ A litematica file with an example Map Area can be found [here](/CarpetPrinterMap
 Let's go over all the special blocks we need at the restock station.
 
 #### DumpChest
-The bot will fill this chest with carpets it doesnt need anymore. Make sure you empty it with 2 parallel hoppers/dispensers.
+The bot will fill this chest with carpets it doesn't need anymore. Make sure you empty it with 2 parallel hoppers/dispensers.
 
 #### FinishedMapChest
 Pretty self-explanatory. The bot will put the maps here.
@@ -53,4 +53,4 @@ The module will prompt you to interact with all necessary blocks. Chests only ha
 The bot will build the map line by line. It calculates the maximum area he can cover with carpets using the free slots he has available and restocks accordingly. When one color is empty he dumps the remaining carpets into the DumpChest and the cycle repeats.
 
 ### Create Map Item
-When the map is finished the bot grabs an empty map and glass pane from the MapMaterialChest and walks a small circle in the center to fill it. Depending on your render distance this step might be unnecessary. After storing the map the map will be reset and the bot starts anew.
+When the map is finished the bot grabs an empty map and glass pane from the MapMaterialChest and walks a small circle in the center to fill it. Depending on your render distance this step might be unnecessary. After storing the map the bot will trigger the reset and start with the next nbt file.
