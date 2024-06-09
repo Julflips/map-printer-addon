@@ -272,7 +272,6 @@ public class FullBlockPrinter extends Module {
     boolean nextResetNorth;
     State state;
     State oldState;
-    Vec3d restockEntrance;
     Pair<BlockHitResult, Vec3d> northReset;
     Pair<BlockHitResult, Vec3d> southReset;
     Pair<BlockHitResult, Vec3d> cartographyTable;
@@ -445,7 +444,6 @@ public class FullBlockPrinter extends Module {
                 int adjustedX = Utils.getIntervalStart(hitPos.getX());
                 int adjustedZ = Utils.getIntervalStart(hitPos.getZ());
                 mapCorner = new BlockPos(adjustedX, hitPos.getY(), adjustedZ);
-                restockEntrance = new Vec3d(mapCorner.east(63).toCenterPos().getX(), mapCorner.up().getY(), mapCorner.north().toCenterPos().getZ());
                 state = State.SelectingNorthReset;
                 info("Map Area selected. Press the §aNorth Reset Trapped Chest §7used to remove the built map");
                 break;
@@ -509,7 +507,6 @@ public class FullBlockPrinter extends Module {
 
                     HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), blockPaletteDict, availableSlots.size(), map);
                     Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(debugPrints.get(), requiredItems, availableSlots);
-                    checkpoints.add(0, new Pair(restockEntrance, new Pair("walkRestock", null)));
                     if (invInformation.getLeft().size() != 0) {
                         Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
                         checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
@@ -526,7 +523,6 @@ public class FullBlockPrinter extends Module {
                         toggle();
                         return;
                     }
-                    checkpoints.add(0, new Pair(restockEntrance, new Pair("walkRestock", null)));
                     state = State.Walking;
                 }
                 if (mc.world.getBlockState(blockPos).getBlock().equals(Blocks.CHEST)) {
@@ -1038,9 +1034,7 @@ public class FullBlockPrinter extends Module {
         checkpoints.add(0, new Pair(mc.player.getPos(), new Pair("walkRestock", null)));
         checkpoints.add(0, new Pair(pathCheckpoint1, new Pair("walkRestock", null)));
         checkpoints.add(0, new Pair(pathCheckpoint2, new Pair("walkRestock", null)));
-        checkpoints.add(0, new Pair(restockEntrance, new Pair("walkRestock", null)));
         checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
-        checkpoints.add(0, new Pair(restockEntrance, new Pair("walkRestock", null)));
         checkpoints.add(0, new Pair(pathCheckpoint2, new Pair("walkRestock", null)));
         checkpoints.add(0, new Pair(pathCheckpoint1, new Pair("walkRestock", null)));
         return false;
