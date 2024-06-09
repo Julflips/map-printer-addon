@@ -266,7 +266,6 @@ public class FullBlockPrinter extends Module {
     int closeResetChestTicks;
     int interactTimeout;
     long lastTickTime;
-    boolean pressedReset;
     boolean closeNextInvPacket;
     boolean atEdge;
     boolean nextResetNorth;
@@ -319,7 +318,6 @@ public class FullBlockPrinter extends Module {
         dumpChests = new ArrayList<>();
         toBeHandledInvPacket = null;
         closeNextInvPacket = false;
-        pressedReset = false;
         atEdge = false;
         nextResetNorth = startResetNorth.get();
         timeoutTicks = 0;
@@ -720,7 +718,6 @@ public class FullBlockPrinter extends Module {
                 break;
             case AwaitResetResponse:
                 interactTimeout = 0;
-                pressedReset = true;
                 closeNextInvPacket = false;
                 closeResetChestTicks = resetChestCloseDelay.get();
                 break;
@@ -764,6 +761,22 @@ public class FullBlockPrinter extends Module {
         }
     }
 
+    private void endTNTAvoid() {
+        info("Walking back...");
+        Vec3d northCP = mapCorner.add(-1,1,-1).toCenterPos();
+        Vec3d southCP = mapCorner.add(-1,1, map[0].length).toCenterPos();
+        if (nextResetNorth) {
+            checkpoints.add(new Pair<>(southCP, new Pair<>("sprint", null)));
+            checkpoints.add(new Pair<>(northCP, new Pair<>("finishedAvoid", null)));
+        } else {
+            checkpoints.add(new Pair<>(northCP, new Pair<>("sprint", null)));
+            checkpoints.add(new Pair<>(southCP, new Pair<>("finishedAvoid", null)));
+        }
+        nextResetNorth = !nextResetNorth;
+        timeoutTicks = resetDelay.get();
+        state = State.AwaitNBTFile;
+    }
+
     @EventHandler
     private void onTick(TickEvent.Pre event) {
         if (state == null) return;
@@ -781,13 +794,7 @@ public class FullBlockPrinter extends Module {
             interactTimeout--;
             if (interactTimeout == 0) {
                 info("Interaction timed out. Interacting again...");
-                if (pressedReset) {
-                    if (nextResetNorth) {
-                        interactWithBlock(northReset.getLeft());
-                    } else {
-                        interactWithBlock(southReset.getLeft());
-                    }
-                } else if (state == State.AwaitCartographyResponse) {
+                if (state == State.AwaitCartographyResponse) {
                     interactWithBlock(cartographyTable.getLeft());
                 } else {
                     interactWithBlock(lastInteractedChest);
@@ -834,13 +841,11 @@ public class FullBlockPrinter extends Module {
             if (!nextResetNorth) {
                 offset *= -1;
                 if (intactRow == 0) {
-                    //ToDO
-                    info("Walk back ToDo South");
+                    endTNTAvoid();
                     return;
                 }
             } else if (intactRow == map[0].length - 1){
-                //ToDO
-                info("Walk back ToDo North");
+                endTNTAvoid();
                 return;
             }
             Vec3d targetPos = mapCorner.add(map.length/2, 1, intactRow + offset).toCenterPos();
@@ -870,15 +875,6 @@ public class FullBlockPrinter extends Module {
                 return;
             }
             state = State.Walking;
-        }
-
-        if (pressedReset) {
-            pressedReset = false;
-            calculateBuildingPath();
-            Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
-            checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
-            Utils.setWPressed(true);
-            return;
         }
 
         if (toBeHandledInvPacket != null) {
@@ -944,6 +940,11 @@ public class FullBlockPrinter extends Module {
                 case "switchAvoidTNT":
                     state = State.AvoidTNT;
                     Utils.setWPressed(false);
+                    return;
+                case "finishedAvoid":
+                    calculateBuildingPath();
+                    Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
+                    checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
                     return;
                 case "dump":
                     interactWithBlock(checkpointAction.getRight());
