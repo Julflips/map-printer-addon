@@ -321,7 +321,7 @@ public class FullBlockPrinter extends Module {
         closeNextInvPacket = false;
         pressedReset = false;
         atEdge = false;
-        nextResetNorth = true;
+        nextResetNorth = startResetNorth.get();
         timeoutTicks = 0;
         interactTimeout = 0;
         closeResetChestTicks = 0;
@@ -747,10 +747,9 @@ public class FullBlockPrinter extends Module {
     }
 
     private int getFirstIntactRow() {
-        //ToDO
         for (int z = 0; z < map[0].length; z++) {
             int adjustedZ = z;
-            if (!nextResetNorth) adjustedZ = map[0].length - z - 1;
+            if (nextResetNorth) adjustedZ = map[0].length - z - 1;
             for (int x = 0; x < map.length; x++) {
                 BlockPos pos = new BlockPos(mapCorner.add(x, 0, adjustedZ));
                 if (mc.world.getBlockState(pos).isAir()) {
@@ -759,9 +758,9 @@ public class FullBlockPrinter extends Module {
             }
         }
         if (nextResetNorth) {
-            return map[0].length;
+            return -1;
         } else {
-            return 0;
+            return map[0].length;
         }
     }
 
@@ -831,14 +830,27 @@ public class FullBlockPrinter extends Module {
 
         if (state == State.AvoidTNT) {
             int intactRow = getFirstIntactRow();
-            if (intactRow == 0) {
+            int offset = tntDistance.get();
+            if (!nextResetNorth) {
+                offset *= -1;
+                if (intactRow == 0) {
+                    //ToDO
+                    info("Walk back ToDo South");
+                    return;
+                }
+            } else if (intactRow == map[0].length - 1){
                 //ToDO
-                info("Walk back ToDo");
+                info("Walk back ToDo North");
                 return;
             }
-            Vec3d targetPos = mapCorner.add(map.length/2, 1, intactRow).toCenterPos();
-            checkpoints.add(0, new Pair<>(targetPos, new Pair<>("switchAvoidTNT", null)));
-            state = State.Walking;
+            Vec3d targetPos = mapCorner.add(map.length/2, 1, intactRow + offset).toCenterPos();
+             targetPos.add(0, mc.player.getY() - targetPos.y, 0);
+            if (PlayerUtils.distanceTo(targetPos) > 0.9) {
+                checkpoints.add(0, new Pair<>(targetPos, new Pair<>("switchAvoidTNT", null)));
+                state = State.Walking;
+                Utils.setWPressed(true);
+            }
+            return;
         }
 
         if (state == State.AwaitNBTFile) {
@@ -931,6 +943,7 @@ public class FullBlockPrinter extends Module {
                     return;
                 case "switchAvoidTNT":
                     state = State.AvoidTNT;
+                    Utils.setWPressed(false);
                     return;
                 case "dump":
                     interactWithBlock(checkpointAction.getRight());
@@ -970,7 +983,7 @@ public class FullBlockPrinter extends Module {
         } else if (sprinting.get() != SprintMode.Off) {
             mc.player.setSprinting(true);
         }
-        if (nextAction == "refill" || nextAction == "dump" || nextAction == "walkRestock") return;
+        if (nextAction == "refill" || nextAction == "dump" || nextAction == "walkRestock" || nextAction == "switchAvoidTNT") return;
 
         ArrayList<BlockPos> placements = new ArrayList<>();
         for (int i = 0; i < allowedPlacements; i++) {
