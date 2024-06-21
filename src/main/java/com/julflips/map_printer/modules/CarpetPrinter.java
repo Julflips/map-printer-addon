@@ -613,25 +613,24 @@ public class CarpetPrinter extends Module {
                 }
                 break;
             case AwaitMapChestResponse:
-                interactTimeout = 0;
-                timeoutTicks = postRestockDelay.get();
+                int mapSlot = -1;
+                int paneSlot = -1;
                 //Search for map and glass pane
                 for (int slot = 0; slot < packet.getContents().size()-36; slot++) {
                     ItemStack stack = packet.getContents().get(slot);
-                    if (stack.getItem() == Items.MAP) {
-                        getOneItem(slot, false, packet);
-                        break;
-                    }
+                    if (stack.getItem() == Items.MAP) mapSlot = slot;
+                    if (stack.getItem() == Items.GLASS_PANE) paneSlot = slot;
                 }
-                //Has to be done after map switch to have map at selected slot
-                for (int slot = 0; slot < packet.getContents().size()-36; slot++) {
-                    ItemStack stack = packet.getContents().get(slot);
-                    if (stack.getItem() == Items.GLASS_PANE) {
-                        getOneItem(slot, true, packet);
-                        break;
-                    }
+                if(mapSlot == -1 || paneSlot == -1) {
+                    warning("Not enough Empty Maps/Glass Panes in Map Material Chest");
+                    return;
                 }
-                mc.player.getInventory().selectedSlot = availableSlots.get(0);
+                interactTimeout = 0;
+                timeoutTicks = postRestockDelay.get();
+                getOneItem(mapSlot, false, packet);
+                getOneItem(paneSlot, true, packet);
+                mc.player.getInventory().selectedSlot = availableHotBarSlots.get(0);
+
                 Vec3d center = mapCorner.add(map.length/2 - 1, 0, map[0].length/2 - 1).toCenterPos();
                 checkpoints.add(new Pair(center, new Pair("fillMap", null)));
                 state = State.Walking;
