@@ -761,16 +761,22 @@ public class FullBlockPrinter extends Module {
         }
     }
 
+    private boolean isCleared() {
+        for (int z = 0; z < map[0].length; z++) {
+            for (int x = 0; x < map.length; x++) {
+                BlockPos pos = new BlockPos(mapCorner.add(x, 0, z));
+                if (!mc.world.getBlockState(pos).isAir()) return false;
+            }
+        }
+        return true;
+    }
+
     private void endTNTAvoid() {
-        info("Walking back...");
-        Vec3d northCP = mapCorner.add(-1,1,-1).toCenterPos();
-        Vec3d southCP = mapCorner.add(-1,1, map[0].length).toCenterPos();
         if (nextResetNorth) {
+            Vec3d southCP = mapCorner.add(-1,1, map[0].length).toCenterPos();
             checkpoints.add(new Pair<>(southCP, new Pair<>("sprint", null)));
+            Vec3d northCP = mapCorner.add(-1,1,-1).toCenterPos();
             checkpoints.add(new Pair<>(northCP, new Pair<>("finishedAvoid", null)));
-        } else {
-            checkpoints.add(new Pair<>(northCP, new Pair<>("sprint", null)));
-            checkpoints.add(new Pair<>(southCP, new Pair<>("finishedAvoid", null)));
         }
         nextResetNorth = !nextResetNorth;
         timeoutTicks = resetDelay.get();
@@ -836,20 +842,14 @@ public class FullBlockPrinter extends Module {
         }
 
         if (state == State.AvoidTNT) {
-            int intactRow = getFirstIntactRow();
-            int offset = tntDistance.get();
-            if (!nextResetNorth) {
-                offset *= -1;
-                if (intactRow == 0) {
-                    endTNTAvoid();
-                    return;
-                }
-            } else if (intactRow == map[0].length - 1){
+            if (isCleared()) {
                 endTNTAvoid();
                 return;
             }
-            Vec3d targetPos = mapCorner.add(map.length/2, 1, intactRow + offset).toCenterPos();
-             targetPos.add(0, mc.player.getY() - targetPos.y, 0);
+            int offset = tntDistance.get();
+            if (!nextResetNorth) offset *= -1;
+            Vec3d targetPos = mapCorner.add(map.length/2, 1, getFirstIntactRow() + offset).toCenterPos();
+            targetPos.add(0, mc.player.getY() - targetPos.y, 0);
             if (PlayerUtils.distanceTo(targetPos) > 0.9) {
                 checkpoints.add(0, new Pair<>(targetPos, new Pair<>("switchAvoidTNT", null)));
                 state = State.Walking;
