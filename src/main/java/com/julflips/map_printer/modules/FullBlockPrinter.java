@@ -998,8 +998,10 @@ public class FullBlockPrinter extends Module {
                        if (!mc.world.getBlockState(blockPos.west()).isAir()) closestPos.set(new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
                        return;
                     }
-                    if (!mc.world.getBlockState(blockPos.west()).isAir() && (blockPos.getZ() < closestPos.get().getZ() ||
-                        (blockPos.getZ() == closestPos.get().getZ() && blockPos.getX() < closestPos.get().getX()))) {
+                    int blockPosZDiff = Math.abs(mc.player.getBlockPos().getZ() - blockPos.getZ());
+                    int closestPosZDiff = Math.abs(mc.player.getBlockPos().getZ() - closestPos.get().getZ());
+                    if (!mc.world.getBlockState(blockPos.west()).isAir() && (blockPosZDiff < closestPosZDiff ||
+                        (blockPosZDiff == closestPosZDiff && blockPos.getX() < closestPos.get().getX()))) {
                         closestPos.set(new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
                     }
                 }
