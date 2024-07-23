@@ -280,6 +280,7 @@ public class FullBlockPrinter extends Module {
     BlockPos mapCorner;
     BlockPos tempChestPos;
     BlockPos lastInteractedChest;
+    Block lastSwappedMaterial;
     InventoryS2CPacket toBeHandledInvPacket;
     HashMap<Integer, Pair<Block, Integer>> blockPaletteDict;       //Maps palette block id to the Minecraft block and amount
     HashMap<Block, ArrayList<Pair<BlockPos, Vec3d>>> materialDict; //Maps block to the chest pos and the open position
@@ -316,6 +317,7 @@ public class FullBlockPrinter extends Module {
         finishedMapChest = null;
         mapMaterialChests = new ArrayList<>();
         dumpChests = new ArrayList<>();
+        lastSwappedMaterial = null;
         toBeHandledInvPacket = null;
         closeNextInvPacket = false;
         atEdge = false;
@@ -1027,6 +1029,7 @@ public class FullBlockPrinter extends Module {
             Block foundMaterial = Registries.BLOCK.get(new Identifier(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (foundMaterial.equals(material)) {
                 BlockUtils.place(pos, Hand.MAIN_HAND, slot, true,50, true, true, false);
+                if (material == lastSwappedMaterial) lastSwappedMaterial = null;
                 return true;
             }
         }
@@ -1034,6 +1037,7 @@ public class FullBlockPrinter extends Module {
             if (mc.player.getInventory().getStack(slot).isEmpty() || availableHotBarSlots.contains(slot)) continue;
             Block foundMaterial = Registries.BLOCK.get(new Identifier(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (foundMaterial.equals(material)) {
+                lastSwappedMaterial = material;
                 Utils.swapIntoHotbar(slot, availableHotBarSlots);
                 //BlockUtils.place(pos, Hand.MAIN_HAND, resultSlot, true,50, true, true, false);
                 Utils.setWPressed(false);
@@ -1042,6 +1046,7 @@ public class FullBlockPrinter extends Module {
                 return false;
             }
         }
+        if (lastSwappedMaterial == material) return false;      //Wait for swapped material
         info("No "+ material.getName().getString() + " found in inventory. Resetting...");
         Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
         boolean walkToSouth = mc.player.getZ() > checkpoints.get(0).getLeft().getZ();
