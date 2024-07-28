@@ -159,6 +159,31 @@ public class Utils {
         return new Pair(dumpSlots, materialInInv);
     }
 
+    public static Vec3d getRestockEntryPos(Vec3d mapCorner, HashMap<Block, ArrayList<Pair<BlockPos, Vec3d>>> materialDict) {
+        //Get min/max coordinates for the restock chests
+        double minX = Double.MAX_VALUE;
+        double minZ = Double.MAX_VALUE;
+        double maxX = -Double.MAX_VALUE;
+        double maxZ = -Double.MAX_VALUE;
+        for (ArrayList<Pair<BlockPos, Vec3d>> chests : materialDict.values()) {
+            for (Pair<BlockPos, Vec3d> chest : chests) {
+                BlockPos chestPos = chest.getLeft();
+                minX = Double.min(minX, chestPos.getX());
+                maxX = Double.max(maxX, chestPos.getX());
+                minZ = Double.min(minZ, chestPos.getZ());
+                maxZ = Double.max(maxZ, chestPos.getZ());
+            }
+        }
+        double avgX = minX + (maxX - minX)/2;
+        double avgZ = minZ + (maxZ - minZ)/2;
+        //Move average position inside the map area
+        avgX = Double.min(mapCorner.x + 127, avgX);
+        avgX = Double.max(mapCorner.x, avgX);
+        avgZ = Double.min(mapCorner.z + 127, avgZ);
+        avgZ = Double.max(mapCorner.z, avgZ);
+        return new Vec3d(avgX, mapCorner.y, avgZ);
+    }
+
     public static String getMinecraftDirectory() {
         String os = System.getProperty("os.name").toLowerCase();
         String userHome = System.getProperty("user.home");

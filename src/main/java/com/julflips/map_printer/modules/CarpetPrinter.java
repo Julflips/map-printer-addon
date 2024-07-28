@@ -78,7 +78,7 @@ public class CarpetPrinter extends Module {
 
     private final Setting<Boolean> startCornerSide = sgGeneral.add(new BoolSetting.Builder()
         .name("start-corner-side")
-        .description("Starts building map on the north side (south if set to false).")
+        .description("If true, start building map on the north side, south otherwise.")
         .defaultValue(true)
         .build()
     );
@@ -277,6 +277,7 @@ public class CarpetPrinter extends Module {
     ArrayList<Triple<Block, Integer, Integer>> restockList;        //Material, Stacks, Raw Amount
     ArrayList<BlockPos> checkedChests;
     ArrayList<Pair<Vec3d, Pair<String, BlockPos>>> checkpoints;    //(GoalPos, (checkpointAction, targetBlock))
+    Vec3d restockEntryPos;
     ArrayList<File> startedFiles;
     ArrayList<ClickSlotC2SPacket> invActionPackets = new ArrayList<>();
     Block[][] map;
@@ -299,6 +300,7 @@ public class CarpetPrinter extends Module {
         invActionPackets = new ArrayList<>();
         reset = null;
         mapCorner = null;
+        restockEntryPos = null;
         lastInteractedChest = null;
         cartographyTable = null;
         finishedMapChest = null;
@@ -465,6 +467,7 @@ public class CarpetPrinter extends Module {
                         return;
                     }
                     Utils.setWPressed(true);
+                    restockEntryPos = Utils.getRestockEntryPos(mapCorner.toCenterPos(), materialDict);
                     calculateBuildingPath(startCornerSide.get(), true);
                     availableSlots = Utils.getAvailableSlots(materialDict);
                     for (int slot : availableSlots) {
@@ -482,6 +485,7 @@ public class CarpetPrinter extends Module {
                     } else {
                         refillInventory(invInformation.getRight());
                     }
+                    checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
                     if (availableHotBarSlots.size() == 0) {
                         warning("No free slots found in hot-bar!");
                         toggle();
@@ -791,6 +795,7 @@ public class CarpetPrinter extends Module {
             calculateBuildingPath(startCornerSide.get(), true);
             Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
             checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
+            checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
             Utils.setWPressed(true);
             return;
         }
@@ -814,7 +819,7 @@ public class CarpetPrinter extends Module {
         Vec3d goal = checkpoints.get(0).getLeft();
         if (PlayerUtils.distanceTo(goal.add(0,mc.player.getY()-goal.y,0)) < checkpointBuffer.get()) {
             Pair<String, BlockPos> checkpointAction = checkpoints.get(0).getRight();
-            if (debugPrints.get() && checkpointAction.getLeft() != null && checkpointAction.getRight() != null) info("Reached " + checkpointAction.getLeft());
+            if (debugPrints.get() && checkpointAction.getLeft() != null && checkpointAction.getLeft() != null) info("Reached " + checkpointAction.getLeft());
             checkpoints.remove(0);
             mc.player.setPosition(goal.getX(), mc.player.getY(), goal.getZ());
             mc.player.setVelocity(0,0,0);
@@ -869,6 +874,7 @@ public class CarpetPrinter extends Module {
                 checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest.getLeft())));
                 bestChest = getBestChest(null);
                 checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
+                checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
                 try {
                     if (moveToFinishedFolder.get()) mapFile.renameTo(new File(mapFile.getParentFile().getAbsolutePath()+File.separator+"_finished_maps"+File.separator+mapFile.getName()));
                 } catch (Exception e) {
@@ -886,7 +892,7 @@ public class CarpetPrinter extends Module {
         } else if (sprinting.get() != SprintMode.Off) {
             mc.player.setSprinting(true);
         }
-        if (nextAction == "refill" || nextAction == "dump") return;
+        if (nextAction == "refill" || nextAction == "dump" || nextAction == "walkRestock") return;
 
         ArrayList<BlockPos> placements = new ArrayList<>();
         for (int i = 0; i < allowedPlacements; i++) {
@@ -944,6 +950,7 @@ public class CarpetPrinter extends Module {
         Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
         checkpoints.add(0, new Pair(mc.player.getPos(), new Pair("sprint", null)));
         checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
+        checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
         return false;
     }
 
@@ -1157,6 +1164,9 @@ public class CarpetPrinter extends Module {
             if (finishedMapChest != null) {
                 event.renderer.box(finishedMapChest.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines, 0);
                 event.renderer.box(finishedMapChest.getRight().x-indicatorSize.get(), finishedMapChest.getRight().y-indicatorSize.get(), finishedMapChest.getRight().z-indicatorSize.get(), finishedMapChest.getRight().getX()+indicatorSize.get(), finishedMapChest.getRight().getY()+indicatorSize.get(), finishedMapChest.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
+            }
+            if (restockEntryPos != null) {
+                event.renderer.box(restockEntryPos.x-indicatorSize.get(), restockEntryPos.y-indicatorSize.get(), restockEntryPos.z-indicatorSize.get(), restockEntryPos.x+indicatorSize.get(), restockEntryPos.y+indicatorSize.get(), restockEntryPos.z+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
         }
     }
