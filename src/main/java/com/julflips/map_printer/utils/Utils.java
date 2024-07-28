@@ -208,7 +208,7 @@ public class Utils {
             if (created) {
                 ChatUtils.info("Created map-printer folder in Minecraft directory");
             } else {
-                ChatUtils.warning("Failed to create map-printer folder in Minecraft directory");
+                ChatUtils.warning("Failed to create map-printer folder in Minecraft directory. Try to disable autoFolderDetection and manually enter a path.");
                 return false;
             }
         }

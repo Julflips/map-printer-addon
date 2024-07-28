@@ -3,6 +3,7 @@ package com.julflips.map_printer.modules;
 import com.julflips.map_printer.Addon;
 import com.julflips.map_printer.utils.Utils;
 import meteordevelopment.meteorclient.events.world.TickEvent;
+import meteordevelopment.meteorclient.gui.utils.StarscriptTextBoxRenderer;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
@@ -176,6 +177,23 @@ public class CarpetPrinter extends Module {
         .build()
     );
 
+    private final Setting<Boolean> autoFolderDetection = sgGeneral.add(new BoolSetting.Builder()
+        .name("auto-folder-detection")
+        .description("Attempts to automatically find the path to your Minecraft directory.")
+        .defaultValue(true)
+        .build()
+    );
+
+    public final Setting<String> mapPrinterFolderPath = sgGeneral.add(new StringSetting.Builder()
+        .name("map-printer-folder-path")
+        .description("The path to your map-printer directory.")
+        .defaultValue("C:\\Users\\(username)\\AppData\\Roaming\\.minecraft\\map-printer")
+        .wide()
+        .renderer(StarscriptTextBoxRenderer.class)
+        .visible(() -> !autoFolderDetection.get())
+        .build()
+    );
+
     private final Setting<Boolean> disableOnFinished = sgGeneral.add(new BoolSetting.Builder()
         .name("disable-on-finished")
         .description("Disables the printer when all nbt files are finished.")
@@ -314,7 +332,11 @@ public class CarpetPrinter extends Module {
         interactTimeout = 0;
         closeResetChestTicks = 0;
 
-        mapFolder = new File(Utils.getMinecraftDirectory() + File.separator + "map-printer");
+        if (autoFolderDetection.get()) {
+            mapFolder = new File(Utils.getMinecraftDirectory() + File.separator + "map-printer");
+        } else {
+            mapFolder = new File(mapPrinterFolderPath.get());
+        }
         if (!Utils.createMapFolder(mapFolder)) {
             toggle();
             return;
@@ -973,7 +995,7 @@ public class CarpetPrinter extends Module {
     private Pair<BlockPos, Vec3d> getBestChest(Block material) {
         Vec3d bestPos = null;
         BlockPos bestChestPos = null;
-        ArrayList<Pair<BlockPos, Vec3d>> list = new ArrayList<>();
+        ArrayList<Pair<BlockPos, Vec3d>> list;
         if (material == null) {
             list = dumpChests;
         } else if (material.equals(Blocks.CARTOGRAPHY_TABLE)) {
