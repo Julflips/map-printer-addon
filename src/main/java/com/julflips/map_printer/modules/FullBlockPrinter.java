@@ -1071,19 +1071,14 @@ public class FullBlockPrinter extends Module {
         if (lastSwappedMaterial == material) return false;      //Wait for swapped material
         info("No "+ material.getName().getString() + " found in inventory. Resetting...");
         Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
-        boolean walkToSouth = mc.player.getZ() > checkpoints.get(0).getLeft().getZ();
         Vec3d pathCheckpoint1 = mc.player.getPos().offset(Direction.WEST, linesPerRun.get());
         Vec3d pathCheckpoint2 = new Vec3d(pathCheckpoint1.getX(), pathCheckpoint1.y, mapCorner.north().toCenterPos().getZ());
         checkpoints.add(0, new Pair(mc.player.getPos(), new Pair("walkRestock", null)));
-        if (walkToSouth) {
-            checkpoints.add(0, new Pair(pathCheckpoint1, new Pair("walkRestock", null)));
-            checkpoints.add(0, new Pair(pathCheckpoint2, new Pair("walkRestock", null)));
-        }
+        checkpoints.add(0, new Pair(pathCheckpoint1, new Pair("walkRestock", null)));
+        checkpoints.add(0, new Pair(pathCheckpoint2, new Pair("walkRestock", null)));
         checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
-        if (walkToSouth) {
-            checkpoints.add(0, new Pair(pathCheckpoint2, new Pair("walkRestock", null)));
-            checkpoints.add(0, new Pair(pathCheckpoint1, new Pair("walkRestock", null)));
-        }
+        checkpoints.add(0, new Pair(pathCheckpoint2, new Pair("walkRestock", null)));
+        checkpoints.add(0, new Pair(pathCheckpoint1, new Pair("walkRestock", null)));
         return false;
     }
 
