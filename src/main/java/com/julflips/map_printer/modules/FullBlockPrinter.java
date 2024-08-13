@@ -437,10 +437,10 @@ public class FullBlockPrinter extends Module {
         checkpoints.add(0, new Pair(restockPos.getRight(), new Pair("refill", restockPos.getLeft())));
     }
 
-    private void calculateBuildingPath() {
+    private void calculateBuildingPath(boolean cornerSide, boolean sprintFirst) {
         //Iterate over map and skip completed lines. Player has to be able to see the complete map area
         //Fills checkpoints list
-        boolean isStartSide = true;
+        boolean isStartSide = cornerSide;
         checkpoints.clear();
         for (int x = 0; x < 128; x+=linesPerRun.get()) {
             boolean lineFinished = true;
@@ -459,14 +459,14 @@ public class FullBlockPrinter extends Module {
             Vec3d cp2 = mapCorner.toCenterPos().add(x+linesPerRun.get()-1,0,128);
             if (isStartSide) {
                 checkpoints.add(new Pair(cp1, new Pair("", null)));
-                checkpoints.add(new Pair(cp2, new Pair("", null)));
+                checkpoints.add(new Pair(cp2, new Pair("lineEnd", null)));
             } else {
                 checkpoints.add(new Pair(cp2, new Pair("", null)));
-                checkpoints.add(new Pair(cp1, new Pair("", null)));
+                checkpoints.add(new Pair(cp1, new Pair("lineEnd", null)));
             }
             isStartSide = !isStartSide;
         }
-        if (checkpoints.size() > 0) {
+        if (checkpoints.size() > 0 && sprintFirst) {
             //Make player sprint to the start of the map
             Pair<Vec3d, Pair<String, BlockPos>>firstPoint = checkpoints.remove(0);
             checkpoints.add(0, new Pair(firstPoint.getLeft(), new Pair("sprint", firstPoint.getRight().getRight())));
@@ -543,7 +543,7 @@ public class FullBlockPrinter extends Module {
                         return;
                     }
                     Utils.setWPressed(true);
-                    calculateBuildingPath();
+                    calculateBuildingPath(true, true);
                     availableSlots = Utils.getAvailableSlots(materialDict);
                     for (int slot : availableSlots) {
                         if (slot < 9) {
@@ -949,6 +949,10 @@ public class FullBlockPrinter extends Module {
             mc.player.setPosition(goal.getX(), mc.player.getY(), goal.getZ());
             mc.player.setVelocity(0,0,0);
             switch (checkpointAction.getLeft()) {
+                case "lineEnd":
+                    boolean atCornerSide = goal.z == mapCorner.north().toCenterPos().z;
+                    calculateBuildingPath(atCornerSide, false);
+                    break;
                 case "mapMaterialChest":
                     BlockPos mapMaterialChest = getBestChest(Blocks.CARTOGRAPHY_TABLE).getLeft();
                     interactWithBlock(mapMaterialChest);
@@ -990,7 +994,7 @@ public class FullBlockPrinter extends Module {
                     Utils.setWPressed(false);
                     return;
                 case "finishedAvoid":
-                    calculateBuildingPath();
+                    calculateBuildingPath(true, true);
                     Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
                     checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
                     return;
@@ -1004,22 +1008,18 @@ public class FullBlockPrinter extends Module {
                     return;
             }
             if (checkpoints.size() == 0) {
-                calculateBuildingPath();
-                if (checkpoints.size() == 0) {
-                    info("Finished building map");
-                    Pair<BlockPos, Vec3d> bestChest = getBestChest(Blocks.CARTOGRAPHY_TABLE);
-                    checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest.getLeft())));
-                    try {
-                        if (moveToFinishedFolder.get()) mapFile.renameTo(new File(mapFile.getParentFile().getAbsolutePath()+File.separator+"_finished_maps"+File.separator+mapFile.getName()));
-                    } catch (Exception e) {
-                        warning("Failed to move map file " + mapFile.getName() + " to finished map folder");
-                        e.printStackTrace();
+                info("Finished building map");
+                Pair<BlockPos, Vec3d> bestChest = getBestChest(Blocks.CARTOGRAPHY_TABLE);
+                checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest.getLeft())));
+                try {
+                    if (moveToFinishedFolder.get()) {
+                        mapFile.renameTo(new File(mapFile.getParentFile().getAbsolutePath()+File.separator+"_finished_maps"+File.separator+mapFile.getName()));
                     }
-                } else {
-                    info("Patching up missed parts of the map...");
+                } catch (Exception e) {
+                    warning("Failed to move map file " + mapFile.getName() + " to finished map folder");
+                    e.printStackTrace();
                 }
-
-                Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
+                bestChest = getBestChest(null);
                 checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
             }
             goal = checkpoints.get(0).getLeft();
@@ -1027,7 +1027,7 @@ public class FullBlockPrinter extends Module {
         mc.player.setYaw((float) Rotations.getYaw(goal));
         String nextAction = checkpoints.get(0).getRight().getLeft();
 
-        if (nextAction == "" && sprinting.get() != SprintMode.Always) {
+        if ((nextAction == "" || nextAction == "lineEnd") && sprinting.get() != SprintMode.Always) {
             mc.player.setSprinting(false);
         } else if (sprinting.get() != SprintMode.Off) {
             mc.player.setSprinting(true);
