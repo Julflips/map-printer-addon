@@ -210,6 +210,13 @@ public class FullBlockPrinter extends Module {
         .build()
     );
 
+    private final Setting<Boolean> printMaxRequirements = sgGeneral.add(new BoolSetting.Builder()
+        .name("print-max-requirements")
+        .description("Print the maximum amount of material needed for all maps in the map-folder.")
+        .defaultValue(true)
+        .build()
+    );
+
     private final Setting<Boolean> debugPrints = sgGeneral.add(new BoolSetting.Builder()
         .name("debug-prints")
         .description("Prints additional information.")
@@ -353,16 +360,34 @@ public class FullBlockPrinter extends Module {
             toggle();
             return;
         }
-        mapFile = getNextMapFile();
-        if (mapFile == null) {
-            warning("No nbt files found in map-printer folder.");
-            toggle();
-            return;
+
+        if (printMaxRequirements.get()) {
+            HashMap<Block, Integer> materialCountDict = new HashMap<>();
+            for (File file : mapFolder.listFiles()) {
+                if (!file.isFile()) continue;
+                if (!prepareNextMapFile()) return;
+                for (Pair<Block, Integer> material: blockPaletteDict.values()) {
+                    if (!materialCountDict.containsKey(material.getLeft())) {
+                        materialCountDict.put(material.getLeft(), material.getRight());
+                    } else {
+                        materialCountDict.put(material.getLeft(), Math.max(materialCountDict.get(material.getLeft()), material.getRight()));
+                    }
+                }
+            }
+            info("§aMaterial needed for all files:");
+            for (Block block : materialCountDict.keySet()) {
+                float shulkerAmount = (float) Math.ceil((float) materialCountDict.get(block) / (float) (27*64) * 10) / (float) 10;
+                if (shulkerAmount == 0) continue;
+                info(block.getName().getString() + ": " + shulkerAmount + " shulker");
+            }
+            startedFiles.clear();
         }
-        if (!loadNBTFiles()) {
-            warning("Failed to read nbt file.");
-            toggle();
-            return;
+        if (!prepareNextMapFile()) return;
+        info("Building: §a" + mapFile.getName());
+        info("Requirements: ");
+        for (Pair<Block, Integer> p: blockPaletteDict.values()) {
+            if (p.getRight() == 0) continue;
+            info(p.getLeft().getName().getString() + ": " + p.getRight());
         }
         state = State.SelectingMapArea;
         info("Select the §aMap Building Area (128x128)");
@@ -816,7 +841,7 @@ public class FullBlockPrinter extends Module {
         }
 
         long timeDifference = System.currentTimeMillis() - lastTickTime;
-        int allowedPlacements = (int) Math.floor(timeDifference / placeDelay.get());
+        int allowedPlacements = (int) Math.floor(timeDifference / (long) placeDelay.get());
         lastTickTime += allowedPlacements * placeDelay.get();
 
         if (interactTimeout > 0) {
@@ -882,20 +907,12 @@ public class FullBlockPrinter extends Module {
         }
 
         if (state == State.AwaitNBTFile) {
-            mapFile = getNextMapFile();
-            if (mapFile == null) {
-                if (disableOnFinished.get()) {
-                    info("All nbt files finished");
-                    toggle();
-                    return;
-                } else {
-                    return;
-                }
-            }
-            if (!loadNBTFiles()) {
-                warning("Failed to read schematic file.");
-                toggle();
-                return;
+            if (!prepareNextMapFile()) return;
+            info("Building: §a" + mapFile.getName());
+            info("Requirements: ");
+            for (Pair<Block, Integer> p: blockPaletteDict.values()) {
+                if (p.getRight() == 0) continue;
+                info(p.getLeft().getName().getString() + ": " + p.getRight());
             }
             state = State.Walking;
         }
@@ -1166,79 +1183,47 @@ public class FullBlockPrinter extends Module {
         return null;
     }
 
-    private File getNextMapFile() {
+    private boolean prepareNextMapFile() {
         for (File file : mapFolder.listFiles()) {
             if (!startedFiles.contains(file) && file.isFile()) {
                 startedFiles.add(file);
-                return file;
+                mapFile = file;
+                break;
             }
         }
-        return null;
+        if (mapFile == null) {
+            warning("No nbt files found in map-printer folder.");
+            toggle();
+            return false;
+        }
+
+        if (!loadNBTFile(mapFile)) {
+            warning("Failed to read nbt file.");
+            toggle();
+            return false;
+        }
+        return true;
     }
 
-    private boolean loadNBTFiles() {
-        info("Building: §a" + mapFile.getName());
+    private boolean loadNBTFile(File file) {
         try {
             NbtSizeTracker sizeTracker = new NbtSizeTracker(0x20000000L, 100);
-            NbtCompound nbt = NbtIo.readCompressed(mapFile.toPath(), sizeTracker);
+            NbtCompound nbt = NbtIo.readCompressed(file.toPath(), sizeTracker);
             //Extracting the palette
             NbtList paletteList  = (NbtList) nbt.get("palette");
-            blockPaletteDict = new HashMap<>();
-            for (int i = 0; i < paletteList.size(); i++) {
-                NbtCompound block = paletteList.getCompound(i);
-                String blockName = block.getString("Name");
-                Block material = Registries.BLOCK.get(new Identifier(blockName));
-                blockPaletteDict.put(i, new Pair(Registries.BLOCK.get(new Identifier(blockName)), 0));
-            }
+            blockPaletteDict = Utils.getBlockPalette(paletteList);
 
-            //Counting required materials and calculating the map offset
             NbtList blockList  = (NbtList) nbt.get("blocks");
-            int maxHeight = Integer.MIN_VALUE;
-            int minX = Integer.MAX_VALUE;
-            int minZ = Integer.MIN_VALUE;
-            for (int i = 0; i < blockList.size(); i++) {
-                NbtCompound block = blockList.getCompound(i);
-                int blockId = block.getInt("state");
-                if (!blockPaletteDict.containsKey(blockId)) continue;
-                blockPaletteDict.put(blockId, new Pair(blockPaletteDict.get(blockId).getLeft(), blockPaletteDict.get(blockId).getRight() + 1));
-                NbtList pos = block.getList("pos", 3);
-                if (pos.getInt(1) > maxHeight) maxHeight = pos.getInt(1);
-                if (pos.getInt(0) < minX) minX = pos.getInt(0);
-                if (pos.getInt(2) > minZ) minZ = pos.getInt(2);
-            }
-            minZ -= 127;
-            info("Requirements: ");
-            for (Pair<Block, Integer> p: blockPaletteDict.values()) {
-                info(p.getLeft().getName().getString() + ": " + p.getRight());
-            }
+            map = Utils.fillBlockPalette(blockList, blockPaletteDict);
 
-            //Extracting the map block positions
-            map = new Block[128][128];
-            for (int i = 0; i < blockList.size(); i++) {
-                NbtCompound block = blockList.getCompound(i);
-                if (!blockPaletteDict.containsKey(block.getInt("state"))) continue;
-                NbtList pos = block.getList("pos", 3);
-                int x = pos.getInt(0) - minX;
-                int y = pos.getInt(1);
-                int z = pos.getInt(2) - minZ;
-                if (y == maxHeight && x < map.length && z < map.length & x >= 0 && z >= 0) {
-                    map[x][z] = blockPaletteDict.get(block.getInt("state")).getLeft();
-                }
-            }
             //Check if a full 128x128 map is present
             for (int x = 0; x < map.length; x++) {
                 for (int z = 0; z < map[x].length; z++) {
                     if (map[x][z] == null) {
-                        warning("No 2D 128x128 map preset in file: " + mapFile.getName());
+                        warning("No 2D 128x128 map preset in file: " + file.getName());
                         return false;
                     }
                 }
-            }
-
-            //info("MaxHeight: " + maxHeight + "MinX: " + minX + " MinZ: " + minZ);
-            info("Palette:");
-            for (Pair<Block, Integer> c : blockPaletteDict.values()) {
-                info(c.getLeft().getName().getString());
             }
             return true;
         } catch (Exception e) {

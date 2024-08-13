@@ -11,6 +11,8 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.CarpetBlock;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtList;
 import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
 import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
@@ -287,5 +289,49 @@ public class Utils {
             }
         }
 
+    }
+
+    public static HashMap<Integer, Pair<Block, Integer>> getBlockPalette(NbtList paletteList) {
+        HashMap<Integer, Pair<Block, Integer>> blockPaletteDict = new HashMap<>();
+        for (int i = 0; i < paletteList.size(); i++) {
+            NbtCompound block = paletteList.getCompound(i);
+            String blockName = block.getString("Name");
+            blockPaletteDict.put(i, new Pair(Registries.BLOCK.get(new Identifier(blockName)), 0));
+        }
+        return blockPaletteDict;
+    }
+
+    public static Block[][] fillBlockPalette(NbtList blockList, HashMap<Integer, Pair<Block, Integer>> blockPalette) {
+        //Calculating the map offset
+        int maxHeight = Integer.MIN_VALUE;
+        int minX = Integer.MAX_VALUE;
+        int maxZ = Integer.MIN_VALUE;
+        for (int i = 0; i < blockList.size(); i++) {
+            NbtCompound block = blockList.getCompound(i);
+            int blockId = block.getInt("state");
+            if (!blockPalette.containsKey(blockId)) continue;
+            NbtList pos = block.getList("pos", 3);
+            if (pos.getInt(1) > maxHeight) maxHeight = pos.getInt(1);
+            if (pos.getInt(0) < minX) minX = pos.getInt(0);
+            if (pos.getInt(2) > maxZ) maxZ = pos.getInt(2);
+        }
+        maxZ -= 127;
+
+        //Extracting the map block positions
+        Block[][] map = new Block[128][128];
+        for (int i = 0; i < blockList.size(); i++) {
+            NbtCompound block = blockList.getCompound(i);
+            if (!blockPalette.containsKey(block.getInt("state"))) continue;
+            NbtList pos = block.getList("pos", 3);
+            int x = pos.getInt(0) - minX;
+            int y = pos.getInt(1);
+            int z = pos.getInt(2) - maxZ;
+            if (y == maxHeight && x < map.length && z < map.length & x >= 0 && z >= 0) {
+                map[x][z] = blockPalette.get(block.getInt("state")).getLeft();
+                int blockId = block.getInt("state");
+                blockPalette.put(blockId, new Pair(blockPalette.get(blockId).getLeft(), blockPalette.get(blockId).getRight() + 1));
+            }
+        }
+        return map;
     }
 }
