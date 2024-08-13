@@ -476,7 +476,8 @@ public class FullBlockPrinter extends Module {
     @EventHandler
     private void onSendPacket(PacketEvent.Send event) {
         if (event.packet instanceof PlayerMoveC2SPacket) {
-            if (mc.world.getBlockState(mc.player.getBlockPos().down()).isAir() && state == State.Walking && checkpoints.get(0).getRight().getLeft() == "") {
+            if (mc.world.getBlockState(mc.player.getBlockPos().down()).isAir() && state == State.Walking &&
+                (checkpoints.get(0).getRight().getLeft() == "" || checkpoints.get(0).getRight().getLeft() == "lineEnd")) {
                 atEdge = true;
                 Utils.setWPressed(false);
                 mc.player.setVelocity(0,0,0);
