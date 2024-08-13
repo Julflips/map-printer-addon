@@ -825,6 +825,9 @@ public class FullBlockPrinter extends Module {
             checkpoints.add(new Pair<>(southCP, new Pair<>("sprint", null)));
             Vec3d northCP = mapCorner.add(-1,1,-1).toCenterPos();
             checkpoints.add(new Pair<>(northCP, new Pair<>("finishedAvoid", null)));
+        } else {
+            Vec3d centerCP = mapCorner.add(map.length/2, 1, -1).toCenterPos();
+            checkpoints.add( new Pair<>(centerCP, new Pair<>("finishedAvoid", null)));
         }
         nextResetNorth = !nextResetNorth;
         timeoutTicks = resetDelay.get();
@@ -933,6 +936,11 @@ public class FullBlockPrinter extends Module {
 
         if (!state.equals(State.Walking)) return;
         if (!atEdge) Utils.setWPressed(true);
+        if (checkpoints.isEmpty()) {
+            error("Checkpoints are empty. Stopping...");
+            toggle();
+            return;
+        }
         Vec3d goal = checkpoints.get(0).getLeft();
         if (PlayerUtils.distanceTo(goal.add(0,mc.player.getY()-goal.y,0)) < checkpointBuffer.get()) {
             Pair<String, BlockPos> checkpointAction = checkpoints.get(0).getRight();
