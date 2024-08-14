@@ -526,7 +526,7 @@ public class CarpetPrinter extends Module {
                 return;
             }
 
-            Block chestContentBlock = Registries.BLOCK.get(new Identifier(foundItem.toString()));
+            Block chestContentBlock = Registries.BLOCK.get(Identifier.of(foundItem.toString()));
             info("Registered §a" + chestContentBlock.getName().getString());
             if (!materialDict.containsKey(chestContentBlock)) materialDict.put(chestContentBlock, new ArrayList<>());
             ArrayList<Pair<BlockPos, Vec3d>> oldList = materialDict.get(chestContentBlock);
@@ -817,7 +817,7 @@ public class CarpetPrinter extends Module {
                     state = State.AwaitMapChestResponse;
                     return;
                 case "fillMap":
-                    mc.getNetworkHandler().sendPacket(new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, Utils.getNextInteractID()));
+                    mc.getNetworkHandler().sendPacket(new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, Utils.getNextInteractID(), mc.player.getYaw(), mc.player.getPitch()));
                     if (mapFillSquareSize.get() == 0) {
                         checkpoints.add(0, new Pair(cartographyTable.getRight(), new Pair<>("cartographyTable", null)));
                     } else {
@@ -913,7 +913,7 @@ public class CarpetPrinter extends Module {
         //Check hot-bar slots
         for (int slot : availableHotBarSlots) {
             if (mc.player.getInventory().getStack(slot).isEmpty()) continue;
-            Block foundMaterial = Registries.BLOCK.get(new Identifier(mc.player.getInventory().getStack(slot).getItem().toString()));
+            Block foundMaterial = Registries.BLOCK.get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (foundMaterial.equals(material)) {
                 BlockUtils.place(pos, Hand.MAIN_HAND, slot, true,50, true, true, false);
                 return true;
@@ -921,7 +921,7 @@ public class CarpetPrinter extends Module {
         }
         for (int slot : availableSlots) {
             if (mc.player.getInventory().getStack(slot).isEmpty() || availableHotBarSlots.contains(slot)) continue;
-            Block foundMaterial = Registries.BLOCK.get(new Identifier(mc.player.getInventory().getStack(slot).getItem().toString()));
+            Block foundMaterial = Registries.BLOCK.get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (foundMaterial.equals(material)) {
                 Utils.swapIntoHotbar(slot, availableHotBarSlots);
                 //BlockUtils.place(pos, Hand.MAIN_HAND, resultSlot, true,50, true, true, false);
@@ -1043,9 +1043,9 @@ public class CarpetPrinter extends Module {
             for (int i = 0; i < paletteList.size(); i++) {
                 NbtCompound block = paletteList.getCompound(i);
                 String blockName = block.getString("Name");
-                Block material = Registries.BLOCK.get(new Identifier(blockName));
+                Block material = Registries.BLOCK.get(Identifier.of(blockName));
                 if (material instanceof CarpetBlock) {
-                    blockPaletteDict.put(i, new Pair(Registries.BLOCK.get(new Identifier(blockName)), 0));
+                    blockPaletteDict.put(i, new Pair(Registries.BLOCK.get(Identifier.of(blockName)), 0));
                 }
             }
 

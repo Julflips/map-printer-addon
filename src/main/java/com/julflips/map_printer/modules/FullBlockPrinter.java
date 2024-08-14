@@ -614,7 +614,7 @@ public class FullBlockPrinter extends Module {
                 return;
             }
 
-            Block chestContentBlock = Registries.BLOCK.get(new Identifier(foundItem.toString()));
+            Block chestContentBlock = Registries.BLOCK.get(Identifier.of(foundItem.toString()));
             info("Registered §a" + chestContentBlock.getName().getString());
             if (!materialDict.containsKey(chestContentBlock)) materialDict.put(chestContentBlock, new ArrayList<>());
             ArrayList<Pair<BlockPos, Vec3d>> oldList = materialDict.get(chestContentBlock);
@@ -960,7 +960,7 @@ public class FullBlockPrinter extends Module {
                     state = State.AwaitMapChestResponse;
                     return;
                 case "fillMap":
-                    mc.getNetworkHandler().sendPacket(new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, Utils.getNextInteractID()));
+                    mc.getNetworkHandler().sendPacket(new PlayerInteractItemC2SPacket(Hand.MAIN_HAND, Utils.getNextInteractID(), mc.player.getYaw(), mc.player.getPitch()));
                     if (mapFillSquareSize.get() == 0) {
                         checkpoints.add(0, new Pair(cartographyTable.getRight(), new Pair<>("cartographyTable", null)));
                     } else {
@@ -1074,7 +1074,7 @@ public class FullBlockPrinter extends Module {
         //Check hot-bar slots
         for (int slot : availableHotBarSlots) {
             if (mc.player.getInventory().getStack(slot).isEmpty()) continue;
-            Block foundMaterial = Registries.BLOCK.get(new Identifier(mc.player.getInventory().getStack(slot).getItem().toString()));
+            Block foundMaterial = Registries.BLOCK.get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (foundMaterial.equals(material)) {
                 BlockUtils.place(pos, Hand.MAIN_HAND, slot, true,50, true, true, false);
                 if (material == lastSwappedMaterial) lastSwappedMaterial = null;
@@ -1083,7 +1083,7 @@ public class FullBlockPrinter extends Module {
         }
         for (int slot : availableSlots) {
             if (mc.player.getInventory().getStack(slot).isEmpty() || availableHotBarSlots.contains(slot)) continue;
-            Block foundMaterial = Registries.BLOCK.get(new Identifier(mc.player.getInventory().getStack(slot).getItem().toString()));
+            Block foundMaterial = Registries.BLOCK.get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (foundMaterial.equals(material)) {
                 lastSwappedMaterial = material;
                 Utils.swapIntoHotbar(slot, availableHotBarSlots);
