@@ -83,7 +83,7 @@ public class Utils {
                 slots.add(slot);
                 continue;
             }
-            Block material = Registries.BLOCK.get(new Identifier(mc.player.getInventory().getStack(slot).getItem().toString()));
+            Block material = Registries.BLOCK.get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (materials.containsKey(material)) {
                 slots.add(slot);
             }
@@ -130,7 +130,7 @@ public class Utils {
         HashMap<Block, Integer> materialInInv = new HashMap<>();
         for (int slot : availableSlots) {
             if (mc.player.getInventory().getStack(slot).isEmpty()) continue;
-            Block material = Registries.BLOCK.get(new Identifier(mc.player.getInventory().getStack(slot).getItem().toString()));
+            Block material = Registries.BLOCK.get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (requiredItems.containsKey(material)) {
                 int requiredAmount = requiredItems.get(material);
                 int requiredModulusAmount = (requiredAmount - (requiredAmount / 64) * 64);
