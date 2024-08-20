@@ -129,15 +129,6 @@ public class CarpetPrinter extends Module {
         .build()
     );
 
-    private final Setting<Integer> resetDelay = sgGeneral.add(new IntSetting.Builder()
-        .name("reset-delay")
-        .description("How many ticks to wait after after reset button was pressed.")
-        .defaultValue(400)
-        .min(1)
-        .sliderRange(50, 600)
-        .build()
-    );
-
     private final Setting<Integer> resetChestCloseDelay = sgGeneral.add(new IntSetting.Builder()
         .name("reset-chest-close-delay")
         .description("How many ticks to wait before closing the reset trap chest again.")
@@ -710,8 +701,7 @@ public class CarpetPrinter extends Module {
                 break;
             case AwaitResetResponse:
                 interactTimeout = 0;
-                timeoutTicks = resetDelay.get();
-                pressedReset = true;
+                pressedReset = false;
                 closeNextInvPacket = false;
                 closeResetChestTicks = resetChestCloseDelay.get();
                 break;
@@ -751,7 +741,6 @@ public class CarpetPrinter extends Module {
                 info("Interaction timed out. Interacting again...");
                 if (pressedReset) {
                     interactWithBlock(reset.getLeft());
-                    timeoutTicks = resetDelay.get();
                 } else if (state == State.AwaitCartographyResponse) {
                     interactWithBlock(cartographyTable.getLeft());
                 } else {
@@ -764,7 +753,10 @@ public class CarpetPrinter extends Module {
             closeResetChestTicks--;
             if (closeResetChestTicks == 0) {
                 mc.player.closeHandledScreen();
-                state = State.AwaitNBTFile;
+                Vec3d center = mapCorner.add(map.length/2, 0, map[0].length/2).toCenterPos();
+                checkpoints.add(0, new Pair(center, new Pair("awaitClear", null)));
+                state = State.Walking;
+                info("close reset chest");
             }
         }
 
@@ -793,6 +785,11 @@ public class CarpetPrinter extends Module {
             return;
         }
 
+        if (state == State.AwaitAreaClear && isMapAreaClear()) {
+            state = State.AwaitNBTFile;
+            return;
+        }
+
         if (state == State.AwaitNBTFile) {
             mapFile = getNextMapFile();
             if (mapFile == null) {
@@ -810,16 +807,10 @@ public class CarpetPrinter extends Module {
                 return;
             }
             state = State.Walking;
-        }
-
-        if (pressedReset) {
-            pressedReset = false;
             calculateBuildingPath(startCornerSide.get(), true);
             Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
             checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
             checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
-            Utils.setWPressed(true);
-            return;
         }
 
         if (toBeHandledInvPacket != null) {
@@ -877,6 +868,7 @@ public class CarpetPrinter extends Module {
                     return;
                 case "reset":
                     info("Resetting...");
+                    pressedReset = true;
                     interactWithBlock(reset.getLeft());
                     state = State.AwaitResetResponse;
                     lastInteractedChest = reset.getLeft().getBlockPos();
@@ -888,6 +880,10 @@ public class CarpetPrinter extends Module {
                 case "refill":
                     interactWithBlock(checkpointAction.getRight());
                     state = State.AwaitRestockResponse;
+                    return;
+                case "awaitClear":
+                    state = State.AwaitAreaClear;
+                    Utils.setWPressed(false);
                     return;
             }
             if (checkpoints.size() == 0) {
@@ -1049,6 +1045,16 @@ public class CarpetPrinter extends Module {
         return Utils.getIntervalStart(pos.getX()) == mapCorner.getX() && Utils.getIntervalStart(pos.getZ()) == mapCorner.getZ();
     }
 
+    private boolean isMapAreaClear() {
+        for (int x = 0; x < map.length; x++) {
+            for (int z = 0; z < map[0].length; z++) {
+                BlockState state = mc.world.getBlockState(mapCorner.add(x, 0, z));
+                if (state.getBlock() instanceof CarpetBlock || !state.getFluidState().isEmpty()) return false;
+            }
+        }
+        return true;
+    }
+
     private Block getMaterialFromPos(BlockPos pos) {
         for (Block material : materialDict.keySet()) {
             for (Pair<BlockPos, Vec3d> p : materialDict.get(material)) {
@@ -1206,6 +1212,7 @@ public class CarpetPrinter extends Module {
         AwaitMapChestResponse,
         AwaitFinishedMapChestResponse,
         AwaitCartographyResponse,
+        AwaitAreaClear,
         AwaitNBTFile,
         Walking
     }
