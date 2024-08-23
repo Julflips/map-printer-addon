@@ -466,7 +466,7 @@ public class CarpetPrinter extends Module {
                     info("Inventory slots available for building: " + availableSlots);
 
                     HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), blockPaletteDict, availableSlots.size(), map);
-                    Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(debugPrints.get(), requiredItems, availableSlots);
+                    Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(requiredItems, availableSlots);
                     if (invInformation.getLeft().size() != 0) {
                         Pair<BlockPos, Vec3d> bestChest = getBestChest(null);
                         checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("dump", bestChest.getLeft())));
@@ -579,7 +579,7 @@ public class CarpetPrinter extends Module {
             case AwaitDumpResponse:
                 interactTimeout = 0;
                 HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), blockPaletteDict, availableSlots.size(), map);
-                Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(debugPrints.get(), requiredItems, availableSlots);
+                Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(requiredItems, availableSlots);
                 for (int slot : invInformation.getLeft()) {
                     //info("Initial slot: " + slot);
                     //Slot adjustment because slot IDs are different when opening a container
@@ -748,7 +748,7 @@ public class CarpetPrinter extends Module {
                 }
                 if (state.equals(State.AwaitDumpResponse)) {
                     HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), blockPaletteDict, availableSlots.size(), map);
-                    Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(debugPrints.get(), requiredItems, availableSlots);
+                    Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(requiredItems, availableSlots);
                     refillInventory(invInformation.getRight());
                     state = State.Walking;
                     timeoutTicks = postRestockDelay.get();
