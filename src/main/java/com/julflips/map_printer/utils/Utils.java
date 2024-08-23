@@ -128,7 +128,7 @@ public class Utils {
         return requiredItems;
     }
 
-    public static Pair<ArrayList<Integer>, HashMap<Block, Integer>> getInvInformation(boolean debugPrints, HashMap<Block, Integer> requiredItems, ArrayList<Integer> availableSlots) {
+    public static Pair<ArrayList<Integer>, HashMap<Block, Integer>> getInvInformation(HashMap<Block, Integer> requiredItems, ArrayList<Integer> availableSlots) {
         //Return a list of slots to be dumped and a Hashmap of material-amount we can keep in the inventory
         ArrayList<Integer> dumpSlots = new ArrayList<>();
         HashMap<Block, Integer> materialInInv = new HashMap<>();
@@ -154,11 +154,6 @@ public class Utils {
                 }
             }
             dumpSlots.add(slot);
-        }
-        if (debugPrints) {
-            for (Block material : materialInInv.keySet()) {
-                ChatUtils.info("Keeping: " + material.getName().getString() + " (" + materialInInv.get(material) + ")");
-            }
         }
         return new Pair(dumpSlots, materialInInv);
     }
