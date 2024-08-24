@@ -11,6 +11,8 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.CarpetBlock;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtList;
 import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
 import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
@@ -91,13 +93,15 @@ public class Utils {
         return slots;
     }
 
-    public static HashMap<Block, Integer> getRequiredItems(BlockPos mapCorner, int linesPerRun, HashMap<Integer, Pair<Block, Integer>> carpetDict, int availableSlotsSize, Block[][] map) {
-        //Calculate the next items to restock
+    public static HashMap<Block, Integer> getRequiredItems(BlockPos mapCorner, int linesPerRun, HashMap<Integer, Pair<Block, Integer>> blockPaletteDict, int availableSlotsSize, Block[][] map) {
         HashMap<Block, Integer> requiredItems = new HashMap<>();
-        for (Pair<Block, Integer> p : carpetDict.values()) {
+        ArrayList<Block> mapMaterials = new ArrayList<>();
+        for (Pair<Block, Integer> p : blockPaletteDict.values()) {
             requiredItems.put(p.getLeft(), 0);
+            mapMaterials.add(p.getLeft());
         }
 
+        //Calculate the next items to restock
         //Iterate over map. Player has to be able to see the complete map area
         boolean isStartSide = true;
         for (int x = 0; x < 128; x += linesPerRun) {
@@ -107,8 +111,8 @@ public class Utils {
                     int adjustedZ = z;
                     if (!isStartSide) adjustedZ = 127 - z;
                     //info("x: "+ (x + lineBonus) + " z: " +  adjustedZ);
-                    Block cureentBlock = mc.world.getBlockState(mapCorner.add(x + lineBonus, 0, adjustedZ)).getBlock();
-                    if (!(cureentBlock instanceof CarpetBlock)) {
+                    Block currentBlock = mc.world.getBlockState(mapCorner.add(x + lineBonus, 0, adjustedZ)).getBlock();
+                    if (!mapMaterials.contains(currentBlock)) {
                         Block material = map[x+lineBonus][adjustedZ];
                         requiredItems.put(material, requiredItems.get(material) + 1);
                         //Check if the item fits into inventory. If not, undo the last increment and return
@@ -124,7 +128,7 @@ public class Utils {
         return requiredItems;
     }
 
-    public static Pair<ArrayList<Integer>, HashMap<Block, Integer>> getInvInformation(boolean debugPrints, HashMap<Block, Integer> requiredItems, ArrayList<Integer> availableSlots) {
+    public static Pair<ArrayList<Integer>, HashMap<Block, Integer>> getInvInformation(HashMap<Block, Integer> requiredItems, ArrayList<Integer> availableSlots) {
         //Return a list of slots to be dumped and a Hashmap of material-amount we can keep in the inventory
         ArrayList<Integer> dumpSlots = new ArrayList<>();
         HashMap<Block, Integer> materialInInv = new HashMap<>();
@@ -150,11 +154,6 @@ public class Utils {
                 }
             }
             dumpSlots.add(slot);
-        }
-        if (debugPrints) {
-            for (Block material : materialInInv.keySet()) {
-                ChatUtils.info("Keeping: " + material.getName().getString() + " (" + materialInInv.get(material) + ")");
-            }
         }
         return new Pair(dumpSlots, materialInInv);
     }
@@ -310,5 +309,49 @@ public class Utils {
             }
         }
 
+    }
+
+    public static HashMap<Integer, Pair<Block, Integer>> getBlockPalette(NbtList paletteList) {
+        HashMap<Integer, Pair<Block, Integer>> blockPaletteDict = new HashMap<>();
+        for (int i = 0; i < paletteList.size(); i++) {
+            NbtCompound block = paletteList.getCompound(i);
+            String blockName = block.getString("Name");
+            blockPaletteDict.put(i, new Pair(Registries.BLOCK.get(Identifier.of(blockName)), 0));
+        }
+        return blockPaletteDict;
+    }
+
+    public static Block[][] fillBlockPalette(NbtList blockList, HashMap<Integer, Pair<Block, Integer>> blockPalette) {
+        //Calculating the map offset
+        int maxHeight = Integer.MIN_VALUE;
+        int minX = Integer.MAX_VALUE;
+        int maxZ = Integer.MIN_VALUE;
+        for (int i = 0; i < blockList.size(); i++) {
+            NbtCompound block = blockList.getCompound(i);
+            int blockId = block.getInt("state");
+            if (!blockPalette.containsKey(blockId)) continue;
+            NbtList pos = block.getList("pos", 3);
+            if (pos.getInt(1) > maxHeight) maxHeight = pos.getInt(1);
+            if (pos.getInt(0) < minX) minX = pos.getInt(0);
+            if (pos.getInt(2) > maxZ) maxZ = pos.getInt(2);
+        }
+        maxZ -= 127;
+
+        //Extracting the map block positions
+        Block[][] map = new Block[128][128];
+        for (int i = 0; i < blockList.size(); i++) {
+            NbtCompound block = blockList.getCompound(i);
+            if (!blockPalette.containsKey(block.getInt("state"))) continue;
+            NbtList pos = block.getList("pos", 3);
+            int x = pos.getInt(0) - minX;
+            int y = pos.getInt(1);
+            int z = pos.getInt(2) - maxZ;
+            if (y == maxHeight && x < map.length && z < map.length & x >= 0 && z >= 0) {
+                map[x][z] = blockPalette.get(block.getInt("state")).getLeft();
+                int blockId = block.getInt("state");
+                blockPalette.put(blockId, new Pair(blockPalette.get(blockId).getLeft(), blockPalette.get(blockId).getRight() + 1));
+            }
+        }
+        return map;
     }
 }
