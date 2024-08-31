@@ -459,10 +459,10 @@ public class FullBlockPrinter extends Module {
             Vec3d cp1 = mapCorner.toCenterPos().add(x+linesPerRun.get()-1,0,-1);
             Vec3d cp2 = mapCorner.toCenterPos().add(x+linesPerRun.get()-1,0,128);
             if (isStartSide) {
-                checkpoints.add(new Pair(cp1, new Pair("", null)));
+                checkpoints.add(new Pair(cp1, new Pair("nextLine", null)));
                 checkpoints.add(new Pair(cp2, new Pair("lineEnd", null)));
             } else {
-                checkpoints.add(new Pair(cp2, new Pair("", null)));
+                checkpoints.add(new Pair(cp2, new Pair("nextLine", null)));
                 checkpoints.add(new Pair(cp1, new Pair("lineEnd", null)));
             }
             isStartSide = !isStartSide;
@@ -1007,7 +1007,8 @@ public class FullBlockPrinter extends Module {
         } else if (sprinting.get() != SprintMode.Off) {
             mc.player.setSprinting(true);
         }
-        if (nextAction == "refill" || nextAction == "dump" || nextAction == "walkRestock" || nextAction == "switchAvoidTNT") return;
+        if (nextAction == "refill" || nextAction == "dump" || nextAction == "walkRestock"
+            || nextAction == "switchAvoidTNT" || nextAction == "nextLine") return;
 
         ArrayList<BlockPos> placements = new ArrayList<>();
         for (int i = 0; i < allowedPlacements; i++) {
