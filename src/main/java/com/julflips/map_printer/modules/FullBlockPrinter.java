@@ -633,6 +633,7 @@ public class FullBlockPrinter extends Module {
         closeNextInvPacket = true;
         switch (state) {
             case AwaitRestockResponse:
+                interactTimeout = 0;
                 boolean foundMaterials = false;
                 for (int i = 0; i < packet.getContents().size()-36; i++) {
                     ItemStack stack = packet.getContents().get(i);
@@ -656,9 +657,7 @@ public class FullBlockPrinter extends Module {
                         restockList.add(0, Triple.of(oldTriple.getLeft(), oldTriple.getMiddle() - 1, oldTriple.getRight() - 64));
                     }
                 }
-                if (!foundMaterials) return;
-                interactTimeout = 0;
-                timeoutTicks = invActionDelay.get();
+                if (!foundMaterials) endRestocking();
                 break;
             case AwaitMapChestResponse:
                 int mapSlot = -1;
@@ -946,14 +945,15 @@ public class FullBlockPrinter extends Module {
                     }
                     return;
                 case "cartographyTable":
-                    interactWithBlock(cartographyTable.getLeft());
                     state = State.AwaitCartographyResponse;
+                    interactWithBlock(cartographyTable.getLeft());
                     return;
                 case "finishedMapChest":
-                    interactWithBlock(finishedMapChest.getLeft().getBlockPos());
                     state = State.AwaitFinishedMapChestResponse;
+                    interactWithBlock(finishedMapChest.getLeft().getBlockPos());
                     return;
                 case "reset":
+                    state = State.AwaitResetResponse;
                     info("Resetting...");
                     if (nextResetNorth) {
                         interactWithBlock(northReset.getLeft());
@@ -962,7 +962,6 @@ public class FullBlockPrinter extends Module {
                         interactWithBlock(southReset.getLeft());
                         lastInteractedChest = southReset.getLeft().getBlockPos();
                     }
-                    state = State.AwaitResetResponse;
                     return;
                 case "switchAvoidTNT":
                     state = State.AvoidTNT;
@@ -973,14 +972,14 @@ public class FullBlockPrinter extends Module {
                     checkpoints.add(0, new Pair(dumpStation.getLeft(), new Pair("dump", null)));
                     return;
                 case "dump":
+                    state = State.Dumping;
                     Utils.setWPressed(false);
                     mc.player.setYaw(dumpStation.getRight().getLeft());
                     mc.player.setPitch(dumpStation.getRight().getRight());
-                    state = State.Dumping;
                     return;
                 case "refill":
-                    interactWithBlock(checkpointAction.getRight());
                     state = State.AwaitRestockResponse;
+                    interactWithBlock(checkpointAction.getRight());
                     return;
             }
             if (checkpoints.size() == 0) {
@@ -1130,9 +1129,8 @@ public class FullBlockPrinter extends Module {
             }
         }
         if (bestPos == null || bestChestPos == null) {
-            warning("All chests are been checked. Choosing a random one...");
-            Random random = new Random();
-            return list.get(random.nextInt(list.size()));
+            checkedChests.clear();
+            return  getBestChest(material);
         }
         return new Pair(bestChestPos, bestPos);
     }

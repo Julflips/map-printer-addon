@@ -574,6 +574,7 @@ public class CarpetPrinter extends Module {
         closeNextInvPacket = true;
         switch (state) {
             case AwaitRestockResponse:
+                interactTimeout = 0;
                 boolean foundMaterials = false;
                 for (int i = 0; i < packet.getContents().size()-36; i++) {
                     ItemStack stack = packet.getContents().get(i);
@@ -598,9 +599,7 @@ public class CarpetPrinter extends Module {
                         restockList.add(0, Triple.of(oldTriple.getLeft(), oldTriple.getMiddle() - 1, oldTriple.getRight() - 64));
                     }
                 }
-                if (!foundMaterials) return;
-                interactTimeout = 0;
-                timeoutTicks = invActionDelay.get();
+                if (!foundMaterials) endRestocking();
                 break;
             case AwaitDumpResponse:
                 interactTimeout = 0;
@@ -859,27 +858,27 @@ public class CarpetPrinter extends Module {
                     }
                     return;
                 case "cartographyTable":
-                    interactWithBlock(cartographyTable.getLeft());
                     state = State.AwaitCartographyResponse;
+                    interactWithBlock(cartographyTable.getLeft());
                     return;
                 case "finishedMapChest":
-                    interactWithBlock(finishedMapChest.getLeft().getBlockPos());
                     state = State.AwaitFinishedMapChestResponse;
+                    interactWithBlock(finishedMapChest.getLeft().getBlockPos());
                     return;
                 case "reset":
                     info("Resetting...");
+                    state = State.AwaitResetResponse;
                     pressedReset = true;
                     interactWithBlock(reset.getLeft());
-                    state = State.AwaitResetResponse;
                     lastInteractedChest = reset.getLeft().getBlockPos();
                     return;
                 case "dump":
-                    interactWithBlock(checkpointAction.getRight());
                     state = State.AwaitDumpResponse;
+                    interactWithBlock(checkpointAction.getRight());
                     return;
                 case "refill":
-                    interactWithBlock(checkpointAction.getRight());
                     state = State.AwaitRestockResponse;
+                    interactWithBlock(checkpointAction.getRight());
                     return;
                 case "awaitClear":
                     state = State.AwaitAreaClear;
@@ -1013,9 +1012,8 @@ public class CarpetPrinter extends Module {
             }
         }
         if (bestPos == null || bestChestPos == null) {
-            warning("All chests are been checked. Choosing a random one...");
-            Random random = new Random();
-            return list.get(random.nextInt(list.size()));
+            checkedChests.clear();
+            return  getBestChest(material);
         }
         return new Pair(bestChestPos, bestPos);
     }
