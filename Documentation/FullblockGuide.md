@@ -5,7 +5,7 @@ The Fullblock Printer is designed to reuse all blocks used for the map. It works
 
 [![FullBlock Printer](https://img.youtube.com/vi/fY756i6OUpQ/0.jpg)](https://www.youtube.com/watch?v=fY756i6OUpQ)
 ## Setup
-To get the program running we first need to build an area where we will build one 1x1 map at a time. A litematica file with an example Map Area can be found [here](/Documentation/Fullblock Printer.litematic). Note that this is by no means a perfect setup and should be considered an early prototype.
+To get the program running we first need to build an area where we will build one 1x1 map at a time. A litematica file with an example Map Area can be found [here](Fullblock Printer.litematic). Note that this is by no means a perfect setup and should be considered an early prototype.
 
 If you change the setup make sure it still fulfills the following points:
 - The Setup has to be placed in the Mushroom Fields biome. Below sea level (y=64) to prevent all monsters from spawning.

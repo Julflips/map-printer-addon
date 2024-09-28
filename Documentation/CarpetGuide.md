@@ -4,10 +4,10 @@
 The Carpet Printer allows you to build 2D carpet mapart from NBT files.
 ## Setup
 To get the program running we first need to build an area where we will build one 1x1 map at a time. An area could look like this:
-![Setup](Documentation/MapArea.png)
+![Setup](MapArea.png)
 
 As you can see we need a restock station to refill the bot inventory. We can build one in the ground of the map area and refill it from below using droppers to minimize the path we need to walk to it. Alternatively, we can build a simpler restock station at the edge of the area as seen here:
-![Setup](Documentation/RestockStation.png)
+![Setup](RestockStation.png)
 
 Make sure it fulfills the following points:
 - The fluid dispensers and lighting should cover the whole 128x128 MapArea.
@@ -19,7 +19,7 @@ Make sure it fulfills the following points:
 - If you play on hard difficulty don't forget the regeneration beacon
 - **If the bot can not see the whole map from the DumpChest you need to install a mod that caches chunks to increase your render distance. This is necessary so the bot knows what carpets to restock. One mod I know for sure is compatible is [Bobby](https://www.curseforge.com/minecraft/mc-mods/bobby)**.
 
-A litematica file with an example Map Area can be found [here](/Documentation/CarpetPrinterMapArea.litematic).
+A litematica file with an example Map Area can be found [here](CarpetPrinterMapArea.litematic).
 
 ### Special blocks
 Let's go over all the special blocks we need at the restock station.
