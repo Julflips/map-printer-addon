@@ -8,7 +8,7 @@ The Fullblock Printer is designed to reuse all blocks used for the map. It works
 To get the program running we first need to build an area where we will build one 1x1 map at a time. A litematica file with an example Map Area can be found [here](FullblockPrinter.litematic). Note that this is by no means a perfect setup and should be considered an early prototype.
 
 If you change the setup make sure it still fulfills the following points:
-- The Setup has to be placed in the Mushroom Fields biome. Below sea level (y=64) to prevent all monsters from spawning.
+- The Setup has to be placed in the Mushroom Fields biome below sea level (y=64) to prevent all monsters from spawning.
 - The Restock Station has to be on the north side of the Map Area (could easily be changed with code)
 - The Restock Station should have a DumpStation, FinishedMapChest, MapMaterialChest, Reset Trapped Chest, and Cartography Table. I will explain later what the terms mean
 - All of the above components should be reachable from each other by walking in a straight line
