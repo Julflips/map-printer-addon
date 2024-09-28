@@ -13,7 +13,7 @@ If you change the setup make sure it still fulfills the following points:
 - The Restock Station should have a DumpStation, FinishedMapChest, MapMaterialChest, Reset Trapped Chest, and Cartography Table. I will explain later what the terms mean
 - All of the above components should be reachable from each other by walking in a straight line
 - Never unload the bomber while they are running. They might break.
-- **If the bot can not see the whole map at a corner you need to install a mod that caches chunks to increase your render distance. This is necessary so the bot knows what carpets to restock. One mod I know for sure is compatible is [Bobby](https://www.curseforge.com/minecraft/mc-mods/bobby)**.
+- **If the bot can not see the whole map at a corner you need to install a mod that caches chunks to increase your render distance. One mod I know for sure is compatible is [Bobby](https://www.curseforge.com/minecraft/mc-mods/bobby)**.
 
 
 ### Special blocks
