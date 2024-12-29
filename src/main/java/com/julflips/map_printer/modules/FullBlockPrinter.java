@@ -1282,6 +1282,9 @@ public class FullBlockPrinter extends Module {
                 event.renderer.box(cartographyTable.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines, 0);
                 event.renderer.box(cartographyTable.getRight().x-indicatorSize.get(), cartographyTable.getRight().y-indicatorSize.get(), cartographyTable.getRight().z-indicatorSize.get(), cartographyTable.getRight().getX()+indicatorSize.get(), cartographyTable.getRight().getY()+indicatorSize.get(), cartographyTable.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
+            if (dumpStation != null) {
+                event.renderer.box(dumpStation.getLeft().x-indicatorSize.get(), dumpStation.getLeft().y-indicatorSize.get(), dumpStation.getLeft().z-indicatorSize.get(), dumpStation.getLeft().getX()+indicatorSize.get(), dumpStation.getLeft().getY()+indicatorSize.get(), dumpStation.getLeft().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
+            }
             if (finishedMapChest != null) {
                 event.renderer.box(finishedMapChest.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines, 0);
                 event.renderer.box(finishedMapChest.getRight().x-indicatorSize.get(), finishedMapChest.getRight().y-indicatorSize.get(), finishedMapChest.getRight().z-indicatorSize.get(), finishedMapChest.getRight().getX()+indicatorSize.get(), finishedMapChest.getRight().getY()+indicatorSize.get(), finishedMapChest.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
