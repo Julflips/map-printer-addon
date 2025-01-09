@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class CarpetPrinter extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
+    private final SettingGroup sgError = settings.createGroup("Error Handling");
     private final SettingGroup sgRender = settings.createGroup("Render");
 
     private final Setting<Integer> linesPerRun = sgGeneral.add(new IntSetting.Builder()
@@ -193,17 +194,26 @@ public class CarpetPrinter extends Module {
         .build()
     );
 
-    private final Setting<Boolean> resetWhenError = sgGeneral.add(new BoolSetting.Builder()
-        .name("reset-when-error")
-        .description("Resets the map when detecting an error.")
-        .defaultValue(false)
-        .build()
-    );
-
     private final Setting<Boolean> debugPrints = sgGeneral.add(new BoolSetting.Builder()
         .name("debug-prints")
         .description("Prints additional information.")
         .defaultValue(false)
+        .build()
+    );
+
+    //Error Handling
+
+    private final Setting<Boolean> logErrors = sgError.add(new BoolSetting.Builder()
+        .name("log-errors")
+        .description("Prints warning when a misplacement is detected.")
+        .defaultValue(true)
+        .build()
+    );
+
+    private final Setting<ErrorAction> errorAction = sgError.add(new EnumSetting.Builder<ErrorAction>()
+        .name("error-action")
+        .description("What to do when a misplacement is detected.")
+        .defaultValue(ErrorAction.ToggleOff)
         .build()
     );
 
@@ -446,7 +456,8 @@ public class CarpetPrinter extends Module {
                         if (map[x + lineBonus][z] != block) {
                             int xError = x + lineBonus + mapCorner.getX();
                             int zError = z + mapCorner.getZ();
-                            warning("Error at "+xError+", "+zError+". Is "+block.asItem().getName().getString()+" - Should be "+map[x + lineBonus][z].asItem().getName().getString());
+                            if (logErrors.get()) warning("Error at "+xError+", "+zError+". " +
+                                "Is "+block.asItem().getName().getString()+" - Should be "+map[x + lineBonus][z].asItem().getName().getString());
                             valid = false;
                         }
                     }
@@ -847,7 +858,7 @@ public class CarpetPrinter extends Module {
                 case "lineEnd":
                     boolean atCornerSide = goal.z == mapCorner.toCenterPos().z;
                     calculateBuildingPath(atCornerSide, false);
-                    if (!arePlacementsCorrect() && resetWhenError.get()) {
+                    if (!arePlacementsCorrect() && errorAction.get() == ErrorAction.Reset) {
                         checkpoints.clear();
                         checkpoints.add(0, new Pair(reset.getRight(), new Pair("reset", null)));
                         checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
@@ -902,6 +913,12 @@ public class CarpetPrinter extends Module {
                     return;
             }
             if (checkpoints.size() == 0) {
+                if (!arePlacementsCorrect() && errorAction.get() == ErrorAction.ToggleOff) {
+                    checkpoints.add(new Pair(mc.player.getPos(), new Pair("lineEnd", null)));
+                    warning("ErrorAction is ToggleOff: Stopping because of error...");
+                    toggle();
+                    return;
+                }
                 info("Finished building map");
                 Pair<BlockPos, Vec3d> bestChest = getBestChest(Blocks.CARTOGRAPHY_TABLE);
                 checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest.getLeft())));
@@ -924,7 +941,7 @@ public class CarpetPrinter extends Module {
         } else if (sprinting.get() != SprintMode.Off) {
             mc.player.setSprinting(true);
         }
-        final List<String> allowPlaceActions = Arrays.asList("", "lineEnd");
+        final List<String> allowPlaceActions = Arrays.asList("", "lineEnd", "sprint");
         if (!allowPlaceActions.contains(nextAction)) return;
 
         ArrayList<BlockPos> placements = new ArrayList<>();
@@ -1063,7 +1080,8 @@ public class CarpetPrinter extends Module {
     }
 
     private boolean isWithingMap(BlockPos pos) {
-        return Utils.getIntervalStart(pos.getX()) == mapCorner.getX() && Utils.getIntervalStart(pos.getZ()) == mapCorner.getZ();
+        BlockPos relativePos = pos.subtract(mapCorner);
+        return relativePos.getX() >= 0 && relativePos.getX() < map.length && relativePos.getZ() >= 0 && relativePos.getZ() < map[0].length;
     }
 
     private boolean isMapAreaClear() {
@@ -1245,5 +1263,11 @@ public class CarpetPrinter extends Module {
         Off,
         NotPlacing,
         Always
+    }
+
+    private enum ErrorAction {
+        Ignore,
+        ToggleOff,
+        Reset
     }
 }

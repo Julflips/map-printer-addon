@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class FullBlockPrinter extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
+    private final SettingGroup sgError = settings.createGroup("Error Handling");
     private final SettingGroup sgRender = settings.createGroup("Render");
 
     private final Setting<Integer> linesPerRun = sgGeneral.add(new IntSetting.Builder()
@@ -222,6 +223,22 @@ public class FullBlockPrinter extends Module {
         .name("debug-prints")
         .description("Prints additional information.")
         .defaultValue(false)
+        .build()
+    );
+
+    //Error Handling
+
+    private final Setting<Boolean> logErrors = sgError.add(new BoolSetting.Builder()
+        .name("log-errors")
+        .description("Prints warning when a misplacement is detected.")
+        .defaultValue(true)
+        .build()
+    );
+
+    private final Setting<ErrorAction> errorAction = sgError.add(new EnumSetting.Builder<ErrorAction>()
+        .name("error-action")
+        .description("What to do when a misplacement is detected.")
+        .defaultValue(ErrorAction.ToggleOff)
         .build()
     );
 
@@ -472,6 +489,28 @@ public class FullBlockPrinter extends Module {
             Pair<Vec3d, Pair<String, BlockPos>>firstPoint = checkpoints.remove(0);
             checkpoints.add(0, new Pair(firstPoint.getLeft(), new Pair("sprint", firstPoint.getRight().getRight())));
         }
+    }
+
+    private boolean arePlacementsCorrect() {
+        boolean valid = true;
+        for (int x = 0; x < 128; x+=linesPerRun.get()) {
+            for (int lineBonus = 0; lineBonus < linesPerRun.get(); lineBonus++) {
+                if (x + lineBonus > 127) break;
+                for (int z = 0; z < 128; z++) {
+                    BlockState blockState = mc.world.getBlockState(mapCorner.add(x + lineBonus, 0, z));
+                    if (!blockState.isReplaceable()) {
+                        if (map[x + lineBonus][z] != blockState.getBlock()) {
+                            int xError = x + lineBonus + mapCorner.getX();
+                            int zError = z + mapCorner.getZ();
+                            if (logErrors.get()) warning("Error at "+xError+", "+zError+". " +
+                                "Is "+blockState.getBlock().getName().getString()+" - Should be "+map[x + lineBonus][z].getName().getString());
+                            valid = false;
+                        }
+                    }
+                }
+            }
+        }
+        return valid;
     }
 
     @EventHandler
@@ -924,6 +963,7 @@ public class FullBlockPrinter extends Module {
             mc.player.setVelocity(0,0,0);
             switch (checkpointAction.getLeft()) {
                 case "lineEnd":
+                    arePlacementsCorrect();
                     boolean atCornerSide = goal.z == mapCorner.north().toCenterPos().z;
                     calculateBuildingPath(atCornerSide, false);
                     break;
@@ -983,6 +1023,12 @@ public class FullBlockPrinter extends Module {
                     return;
             }
             if (checkpoints.size() == 0) {
+                if (!arePlacementsCorrect() && errorAction.get() == ErrorAction.ToggleOff) {
+                    checkpoints.add(new Pair(mc.player.getPos(), new Pair("lineEnd", null)));
+                    warning("ErrorAction is ToggleOff: Stopping because of error...");
+                    toggle();
+                    return;
+                }
                 info("Finished building map");
                 Pair<BlockPos, Vec3d> bestChest = getBestChest(Blocks.CARTOGRAPHY_TABLE);
                 checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest.getLeft())));
@@ -1171,7 +1217,8 @@ public class FullBlockPrinter extends Module {
     }
 
     private boolean isWithingMap(BlockPos pos) {
-        return Utils.getIntervalStart(pos.getX()) == mapCorner.getX() && Utils.getIntervalStart(pos.getZ()) == mapCorner.getZ();
+        BlockPos relativePos = pos.subtract(mapCorner);
+        return relativePos.getX() >= 0 && relativePos.getX() < map.length && relativePos.getZ() >= 0 && relativePos.getZ() < map[0].length;
     }
 
     private Block getMaterialFromPos(BlockPos pos) {
@@ -1316,5 +1363,10 @@ public class FullBlockPrinter extends Module {
         Off,
         NotPlacing,
         Always
+    }
+
+    private enum ErrorAction {
+        Ignore,
+        ToggleOff
     }
 }
