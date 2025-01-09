@@ -111,7 +111,7 @@ public class Utils {
                     if (!isStartSide) adjustedZ = 127 - z;
                     //info("x: "+ (x + lineBonus) + " z: " +  adjustedZ);
                     Block currentBlock = mc.world.getBlockState(mapCorner.add(x + lineBonus, 0, adjustedZ)).getBlock();
-                    if (!mapMaterials.contains(currentBlock)) {
+                    if (!mapMaterials.contains(currentBlock) && map[x+lineBonus][adjustedZ] != null) {
                         Block material = map[x+lineBonus][adjustedZ];
                         requiredItems.put(material, requiredItems.get(material) + 1);
                         //Check if the item fits into inventory. If not, undo the last increment and return
@@ -351,6 +351,14 @@ public class Utils {
                 blockPalette.put(blockId, new Pair(blockPalette.get(blockId).getLeft(), blockPalette.get(blockId).getRight() + 1));
             }
         }
+
+        //Remove unused blocks from the blockPalette
+        ArrayList<Integer> toBeRemoved = new ArrayList<>();
+        for (int key : blockPalette.keySet()) {
+            if (blockPalette.get(key).getRight() == 0) toBeRemoved.add(key);
+        }
+        for (int key : toBeRemoved) blockPalette.remove(key);
+
         return map;
     }
 }
