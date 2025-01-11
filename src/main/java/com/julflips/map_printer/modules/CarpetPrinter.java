@@ -439,7 +439,7 @@ public class CarpetPrinter extends Module {
                 if (x + lineBonus > 127) break;
                 for (int z = 0; z < 128; z++) {
                     BlockState blockState = mc.world.getBlockState(mapCorner.add(x + lineBonus, 0, z));
-                    if (blockState.isReplaceable() && map[x + lineBonus][z] != null) {
+                    if (blockState.isAir() && map[x + lineBonus][z] != null) {
                         //If there is a replaceable block and not an ignored block type at the position. Mark the line as not done
                         lineFinished = false;
                         break;
@@ -473,7 +473,7 @@ public class CarpetPrinter extends Module {
                 for (int z = 0; z < 128; z++) {
                     BlockState blockState = mc.world.getBlockState(mapCorner.add(x + lineBonus, 0, z));
                     Block block = blockState.getBlock();
-                    if (!blockState.isReplaceable()) {
+                    if (!blockState.isAir()) {
                         if (map[x + lineBonus][z] != block) {
                             int xError = x + lineBonus + mapCorner.getX();
                             int zError = z + mapCorner.getZ();
@@ -983,7 +983,7 @@ public class CarpetPrinter extends Module {
             Utils.iterateBlocks(mc.player.getBlockPos(), (int) Math.ceil(placeRange.get()) + 1, 0,((blockPos, blockState) -> {
                 Double posDistance = PlayerUtils.distanceTo(blockPos);
                 BlockPos relativePos = blockPos.subtract(mapCorner);
-                if (blockState.isReplaceable() && posDistance <= placeRange.get() && posDistance > minPlaceDistance.get()
+                if (blockState.isAir() && posDistance <= placeRange.get() && posDistance > minPlaceDistance.get()
                     && isWithingMap(blockPos) && map[relativePos.getX()][relativePos.getZ()] != null
                     && blockPos.getX() <= currentGoal.getX() + linesPerRun.get()-1 && !placements.contains(blockPos)) {
                     if (closestPos.get() == null || posDistance < PlayerUtils.distanceTo(closestPos.get())) {
@@ -1122,8 +1122,8 @@ public class CarpetPrinter extends Module {
     private boolean isMapAreaClear() {
         for (int x = 0; x < map.length; x++) {
             for (int z = 0; z < map[0].length; z++) {
-                BlockState state = mc.world.getBlockState(mapCorner.add(x, 0, z));
-                if (!state.isReplaceable() || !state.getFluidState().isEmpty()) return false;
+                BlockState blockState = mc.world.getBlockState(mapCorner.add(x, 0, z));
+                if (!blockState.isAir() || !blockState.getFluidState().isEmpty()) return false;
             }
         }
         return true;

@@ -498,7 +498,7 @@ public class FullBlockPrinter extends Module {
                 if (x + lineBonus > 127) break;
                 for (int z = 0; z < 128; z++) {
                     BlockState blockState = mc.world.getBlockState(mapCorner.add(x + lineBonus, 0, z));
-                    if (!blockState.isReplaceable()) {
+                    if (!blockState.isAir()) {
                         if (map[x + lineBonus][z] != blockState.getBlock()) {
                             int xError = x + lineBonus + mapCorner.getX();
                             int zError = z + mapCorner.getZ();
