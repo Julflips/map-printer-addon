@@ -981,7 +981,7 @@ public class CarpetPrinter extends Module {
             AtomicReference<BlockPos> closestPos = new AtomicReference<>();
             final Vec3d currentGoal = goal;
             Utils.iterateBlocks(mc.player.getBlockPos(), (int) Math.ceil(placeRange.get()) + 1, 0,((blockPos, blockState) -> {
-                Double posDistance = PlayerUtils.distanceTo(blockPos);
+                Double posDistance = PlayerUtils.distanceTo(blockPos.toCenterPos());
                 BlockPos relativePos = blockPos.subtract(mapCorner);
                 if (blockState.isAir() && posDistance <= placeRange.get() && posDistance > minPlaceDistance.get()
                     && isWithingMap(blockPos) && map[relativePos.getX()][relativePos.getZ()] != null

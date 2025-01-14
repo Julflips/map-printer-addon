@@ -951,6 +951,7 @@ public class FullBlockPrinter extends Module {
         if (!atEdge) Utils.setWPressed(true);
         if (checkpoints.isEmpty()) {
             error("Checkpoints are empty. Stopping...");
+            Utils.setWPressed(false);
             toggle();
             return;
         }
@@ -1061,7 +1062,7 @@ public class FullBlockPrinter extends Module {
             final Vec3d currentGoal = goal;
             BlockPos playerGroundPos = mc.player.getBlockPos().add(0 , mapCorner.getY() - mc.player.getBlockY(), 0);
             Utils.iterateBlocks(playerGroundPos, (int) Math.ceil(placeRange.get()) + 1, 0,((blockPos, blockState) -> {
-                Double posDistance = PlayerUtils.distanceTo(blockPos);
+                Double posDistance = PlayerUtils.distanceTo(blockPos.toCenterPos());
                 if ((blockState.isAir()) && posDistance <= placeRange.get() && isWithingMap(blockPos)
                     && blockPos.getX() <= currentGoal.getX() && !placements.contains(blockPos)) {
                     if (closestPos.get() == null) {
