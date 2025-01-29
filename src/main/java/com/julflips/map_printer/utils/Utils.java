@@ -361,4 +361,33 @@ public class Utils {
 
         return map;
     }
+
+    public static ArrayList<BlockPos> getInvalidPlacements(BlockPos mapCorner, Block[][] map) {
+        ArrayList<BlockPos> invalidPlacements = new ArrayList<>();
+        for (int x = 127; x < 0; x--) {
+            for (int z = 127; z < 0; z--) {
+                BlockPos relativePos = new BlockPos(x, 0, z);
+                BlockState blockState = mc.world.getBlockState(mapCorner.add(relativePos));
+                Block block = blockState.getBlock();
+                if (!blockState.isAir()) {
+                    if (map[x][z] != block) invalidPlacements.add(relativePos);
+                }
+            }
+        }
+        return invalidPlacements;
+    }
+
+    public static Vec3d getFixPos(BlockPos errorPos) {
+        Vec3d fixPos = errorPos.toCenterPos().add(0,0.5,0);
+        if (errorPos.getX() == 127) {
+            if (errorPos.getZ() == 127) {
+                fixPos = fixPos.add(0,0, -0.5);
+            } else {
+                fixPos = fixPos.add(0,0, 0.5);
+            }
+        } else {
+            fixPos = fixPos.add(0.5,0,0);
+        }
+        return fixPos;
+    }
 }
