@@ -94,10 +94,8 @@ public class Utils {
 
     public static HashMap<Block, Integer> getRequiredItems(BlockPos mapCorner, int linesPerRun, HashMap<Integer, Pair<Block, Integer>> blockPaletteDict, int availableSlotsSize, Block[][] map) {
         HashMap<Block, Integer> requiredItems = new HashMap<>();
-        ArrayList<Block> mapMaterials = new ArrayList<>();
         for (Pair<Block, Integer> p : blockPaletteDict.values()) {
             requiredItems.put(p.getLeft(), 0);
-            mapMaterials.add(p.getLeft());
         }
 
         //Calculate the next items to restock
@@ -109,9 +107,9 @@ public class Utils {
                     if (x + lineBonus > 127) break;
                     int adjustedZ = z;
                     if (!isStartSide) adjustedZ = 127 - z;
-                    //info("x: "+ (x + lineBonus) + " z: " +  adjustedZ);
-                    Block currentBlock = mc.world.getBlockState(mapCorner.add(x + lineBonus, 0, adjustedZ)).getBlock();
-                    if (!mapMaterials.contains(currentBlock) && map[x+lineBonus][adjustedZ] != null) {
+                    BlockState blockState = mc.world.getBlockState(mapCorner.add(x + lineBonus, 0, adjustedZ));
+                    if (blockState.isAir() && map[x+lineBonus][adjustedZ] != null) {
+                        //ChatUtils.info("Add material for: " + mapCorner.add(x + lineBonus, 0, adjustedZ).toShortString());
                         Block material = map[x+lineBonus][adjustedZ];
                         requiredItems.put(material, requiredItems.get(material) + 1);
                         //Check if the item fits into inventory. If not, undo the last increment and return
@@ -139,7 +137,7 @@ public class Utils {
                 int requiredModulusAmount = (requiredAmount - (requiredAmount / 64) * 64);
                 if (requiredModulusAmount == 0) requiredModulusAmount = 64;
                 int stackAmount = mc.player.getInventory().getStack(slot).getCount();
-                //info(material.getName().getString() + " | Required: " + requiredModulusAmount + " | Inv: " + stackAmount);
+                // ChatUtils.info(material.getName().getString() + " | Required: " + requiredModulusAmount + " | Inv: " + stackAmount);
                 if (requiredAmount > 0 && requiredModulusAmount <= stackAmount) {
                     int oldEntry = requiredItems.remove(material);
                     requiredItems.put(material, Math.max(0, oldEntry - stackAmount));
@@ -364,8 +362,8 @@ public class Utils {
 
     public static ArrayList<BlockPos> getInvalidPlacements(BlockPos mapCorner, Block[][] map) {
         ArrayList<BlockPos> invalidPlacements = new ArrayList<>();
-        for (int x = 127; x < 0; x--) {
-            for (int z = 127; z < 0; z--) {
+        for (int x = 127; x >= 0; x--) {
+            for (int z = 127; z >= 0; z--) {
                 BlockPos relativePos = new BlockPos(x, 0, z);
                 BlockState blockState = mc.world.getBlockState(mapCorner.add(relativePos));
                 Block block = blockState.getBlock();
@@ -375,19 +373,5 @@ public class Utils {
             }
         }
         return invalidPlacements;
-    }
-
-    public static Vec3d getFixPos(BlockPos errorPos) {
-        Vec3d fixPos = errorPos.toCenterPos().add(0,0.5,0);
-        if (errorPos.getX() == 127) {
-            if (errorPos.getZ() == 127) {
-                fixPos = fixPos.add(0,0, -0.5);
-            } else {
-                fixPos = fixPos.add(0,0, 0.5);
-            }
-        } else {
-            fixPos = fixPos.add(0.5,0,0);
-        }
-        return fixPos;
     }
 }

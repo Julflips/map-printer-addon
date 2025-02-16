@@ -236,7 +236,7 @@ public class CarpetPrinter extends Module {
     private final Setting<ErrorAction> errorAction = sgError.add(new EnumSetting.Builder<ErrorAction>()
         .name("error-action")
         .description("What to do when a misplacement is detected.")
-        .defaultValue(ErrorAction.Ignore)
+        .defaultValue(ErrorAction.Repair)
         .build()
     );
 
@@ -330,7 +330,8 @@ public class CarpetPrinter extends Module {
     ArrayList<Pair<Vec3d, Pair<String, BlockPos>>> checkpoints;    //(GoalPos, (checkpointAction, targetBlock))
     Vec3d restockEntryPos;
     ArrayList<File> startedFiles;
-    ArrayList<ClickSlotC2SPacket> invActionPackets = new ArrayList<>();
+    ArrayList<ClickSlotC2SPacket> invActionPackets;
+    ArrayList<BlockPos> previousInvalidPlacements;
     Block[][] map;
     File mapFolder;
     File mapFile;
@@ -349,6 +350,7 @@ public class CarpetPrinter extends Module {
         checkpoints = new ArrayList<>();
         startedFiles = new ArrayList<>();
         invActionPackets = new ArrayList<>();
+        previousInvalidPlacements = new ArrayList<>();
         reset = null;
         mapCorner = null;
         restockEntryPos = null;
@@ -464,30 +466,6 @@ public class CarpetPrinter extends Module {
             //Make player sprint to the start of the map
             Pair<Vec3d, Pair<String, BlockPos>>firstPoint = checkpoints.remove(0);
             checkpoints.add(0, new Pair(firstPoint.getLeft(), new Pair("sprint", firstPoint.getRight().getRight())));
-        }
-    }
-
-    private void logInvalidPlacements(int relativeX, int lineWidth) {
-        for (int lineBonus = 0; lineBonus <= lineWidth; lineBonus++) {
-            if (relativeX + lineBonus > 127) break;
-            for (int z = 0; z < 128; z++) {
-                BlockState blockState = mc.world.getBlockState(mapCorner.add(relativeX + lineBonus, 0, z));
-                Block block = blockState.getBlock();
-                if (!blockState.isAir()) {
-                    if (map[relativeX + lineBonus][z] != block) {
-                        int xError = relativeX + lineBonus + mapCorner.getX();
-                        int zError = z + mapCorner.getZ();
-                        if (logErrors.get()) {
-                            String expectedBlock = "empty";
-                            if (map[relativeX + lineBonus][z] != null) {
-                                expectedBlock = map[relativeX + lineBonus][z].getName().getString();
-                            }
-                            warning("Error at " + xError + ", " + zError + ". " +
-                                "Is " + block.getName().getString() + " - Should be " + expectedBlock);
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -817,9 +795,12 @@ public class CarpetPrinter extends Module {
 
         if (state == State.AwaitBlockBreak) {
             if (mc.world.getBlockState(repairingPos).isAir()) {
+                repairingPos = null;
                 state = State.Walking;
-                if (checkpoints.isEmpty()) calculateBuildingPath(startCornerSide.get(), true);
+                if (checkpoints.isEmpty()) calculateBuildingPath(false, true);
             } else {
+                Rotations.rotate(Rotations.getYaw(repairingPos), Rotations.getPitch(repairingPos), 50);
+                BlockUtils.breakBlock(repairingPos, true);
                 return;
             }
         }
@@ -893,8 +874,17 @@ public class CarpetPrinter extends Module {
                 case "lineEnd":
                     boolean atCornerSide = goal.z == mapCorner.toCenterPos().z;
                     calculateBuildingPath(atCornerSide, false);
-                    if (logErrors.get()) logInvalidPlacements((int) Math.floor(goal.x) , linesPerRun.get());
                     ArrayList<BlockPos> invalidPlacements = Utils.getInvalidPlacements(mapCorner, map);
+                    if (logErrors.get()) {
+                        for (BlockPos placement : invalidPlacements) {
+                            if (previousInvalidPlacements.contains(placement)) continue;
+                            BlockPos absolutePlacement = placement.add(mapCorner);
+                            info("Error detected at: "+absolutePlacement.toShortString() + ". Is: "
+                                + mc.world.getBlockState(absolutePlacement).getBlock().getName().getString()
+                                + ". Should be: " + map[placement.getX()][placement.getZ()].getName().getString());
+                        }
+                        previousInvalidPlacements = (ArrayList<BlockPos>) invalidPlacements.clone();
+                    }
                     if (!invalidPlacements.isEmpty() && errorAction.get() == ErrorAction.Reset) {
                         warning("ErrorAction is Reset: Resetting map because of an error...");
                         checkpoints.clear();
@@ -952,6 +942,9 @@ public class CarpetPrinter extends Module {
                 case "repair":
                     state = State.AwaitBlockBreak;
                     repairingPos = checkpointAction.getRight();
+                    Utils.setWPressed(false);
+                    mc.player.setVelocity(0,0,0);
+                    Rotations.rotate(Rotations.getYaw(repairingPos), Rotations.getPitch(repairingPos), 50);
                     BlockUtils.breakBlock(repairingPos, true);
                     return;
             }
@@ -967,14 +960,16 @@ public class CarpetPrinter extends Module {
                     if (errorAction.get() == ErrorAction.Repair) {
                         info("Fixing errors: ");
                         for (BlockPos pos : invalidPlacements) {
-                            BlockPos errorPos = new BlockPos(pos);
+                            BlockPos errorPos = new BlockPos(pos).add(mapCorner);
                             info("Pos: " + errorPos.toShortString());
-                            checkpoints.add(new Pair(Utils.getFixPos(errorPos), new Pair("repair", errorPos)));
+                            Vec3d fixPos = errorPos.toCenterPos().subtract(0.5,0.5,0.5);
+                            checkpoints.add(new Pair(fixPos, new Pair("repair", errorPos)));
                         }
                     }
                     return;
                 }
                 info("Finished building map");
+                previousInvalidPlacements.clear();
                 Pair<BlockPos, Vec3d> bestChest = getBestChest(Blocks.CARTOGRAPHY_TABLE);
                 if (bestChest == null) return;
                 checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest.getLeft())));
@@ -1004,7 +999,8 @@ public class CarpetPrinter extends Module {
         for (int i = 0; i < allowedPlacements; i++) {
             AtomicReference<BlockPos> closestPos = new AtomicReference<>();
             final Vec3d currentGoal = goal;
-            Utils.iterateBlocks(mc.player.getBlockPos(), (int) Math.ceil(placeRange.get()) + 1, 0,((blockPos, blockState) -> {
+            BlockPos groundedPlayerPos = new BlockPos(mc.player.getBlockPos().getX(), mapCorner.getY(), mc.player.getBlockPos().getZ());
+            Utils.iterateBlocks(groundedPlayerPos, (int) Math.ceil(placeRange.get()) + 1, 0,((blockPos, blockState) -> {
                 Double posDistance = PlayerUtils.distanceTo(blockPos.toCenterPos());
                 BlockPos relativePos = blockPos.subtract(mapCorner);
                 if (blockState.isAir() && posDistance <= placeRange.get() && posDistance > minPlaceDistance.get()
