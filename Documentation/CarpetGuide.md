@@ -12,20 +12,20 @@ As you can see we need a restock station to refill the bot inventory. We can bui
 Make sure it fulfills the following points:
 - The fluid dispensers and lighting should cover the whole 128x128 MapArea.
 - Avoid having grass blocks on the map area since it can lead to mobs spawning in certain biomes.
-- The restock station should have a DumpChest, FinishedMapChest, MapMaterialChest, Reset Trapped Chest, and Cartography Table. I will explain later what the terms mean
+- The restock station should have a DumpStation, FinishedMapChest, MapMaterialChest, Reset Trapped Chest, and Cartography Table. I will explain later what the terms mean
 - Avoid having the bot pick up old carpets while restocking. If you choose to build the restock station on the map area use lava at the restock station to delete the old carpets. For the other version use slabs to prevent the water from washing carpets into the station.
 - Make sure the server loads the entire map when resetting
 - If Phantoms are on you need a glass ceiling.
 - If you play on hard difficulty don't forget the regeneration beacon
-- **If the bot can not see the whole map from the DumpChest you need to install a mod that caches chunks to increase your render distance. This is necessary so the bot knows what carpets to restock. One mod I know for sure is compatible is [Bobby](https://www.curseforge.com/minecraft/mc-mods/bobby)**.
+- **If the bot can not see the whole map from the DumpStation you need to install a mod that caches chunks to increase your render distance. This is necessary so the bot knows what carpets to restock. One mod I know for sure is compatible is [Bobby](https://www.curseforge.com/minecraft/mc-mods/bobby)**.
 
 A litematica file with an example Map Area can be found [here](CarpetPrinter.litematic).
 
 ### Special blocks
 Let's go over all the special blocks we need at the restock station.
 
-#### DumpChest
-The bot will fill this chest with carpets it doesn't need anymore. Make sure you empty it with 2 parallel hoppers/dispensers.
+#### DumpStation
+The bot will throw any excess in here. It doesn't matter if you destroy or sort the items as long as the bot won't pick them up again while restocking.
 
 #### FinishedMapChest
 Pretty self-explanatory. The bot will put the maps here.
@@ -50,7 +50,7 @@ The addon follows these 3 steps:
 The module will prompt you to interact with all necessary blocks. Chests only have to be selected once even though the rendered box might only highlight half of the chest. Once you are finished interact with the top left (-X, -Z) corner of the map area to start the next step. Every inventory slot containing nothing or carpets will be marked as a slot for future carpets.
 
 ### Build Map
-The bot will build the map line by line. It calculates the maximum area he can cover with carpets using the free slots he has available and restocks accordingly. When one color is empty he dumps the remaining carpets into the DumpChest and the cycle repeats.
+The bot will build the map line by line. It calculates the maximum area he can cover with carpets using the free slots he has available and restocks accordingly. When one color is empty he dumps the remaining carpets into the DumpStation and the cycle repeats.
 
 ### Create Map Item
 When the map is finished the bot grabs an empty map and glass pane from the MapMaterialChest and walks a small circle in the center to fill it. Depending on your render distance this step might be unnecessary. After storing the map the bot will trigger the reset and start with the next nbt file.
