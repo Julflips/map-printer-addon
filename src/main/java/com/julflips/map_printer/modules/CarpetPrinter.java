@@ -395,7 +395,7 @@ public class CarpetPrinter extends Module {
     private void refillInventory(HashMap<Block, Integer> invMaterial) {
         //Fills restockList with required items
         restockList.clear();
-        HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), blockPaletteDict, availableSlots.size(), map);
+        HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), availableSlots.size(), map);
         for (Block material : invMaterial.keySet()) {
             int oldAmount = requiredItems.remove(material);
             requiredItems.put(material, oldAmount - invMaterial.get(material));
@@ -537,7 +537,7 @@ public class CarpetPrinter extends Module {
                     }
                     info("Inventory slots available for building: " + availableSlots);
 
-                    HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), blockPaletteDict, availableSlots.size(), map);
+                    HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), availableSlots.size(), map);
                     Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(requiredItems, availableSlots);
                     if (invInformation.getLeft().size() != 0) {
                         checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
@@ -808,7 +808,7 @@ public class CarpetPrinter extends Module {
         if (state == State.Dumping) {
             int dumpSlot = getDumpSlot();
             if (dumpSlot == -1) {
-                HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), blockPaletteDict, availableSlots.size(), map);
+                HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), availableSlots.size(), map);
                 Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(requiredItems, availableSlots);
                 refillInventory(invInformation.getRight());
                 state = State.Walking;
@@ -1023,7 +1023,7 @@ public class CarpetPrinter extends Module {
     }
 
     private int getDumpSlot() {
-        HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), blockPaletteDict, availableSlots.size(), map);
+        HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), availableSlots.size(), map);
         Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(requiredItems, availableSlots);
         if (invInformation.getLeft().isEmpty()) {
             return -1;
@@ -1187,7 +1187,7 @@ public class CarpetPrinter extends Module {
             for (int key : toBeRemoved) blockPaletteDict.remove(key);
 
             NbtList blockList  = (NbtList) nbt.get("blocks");
-            map = Utils.fillBlockPalette(blockList, blockPaletteDict);
+            map = Utils.generateMapArray(blockList, blockPaletteDict);
 
             info("Requirements: ");
             for (Pair<Block, Integer> p: blockPaletteDict.values()) {

@@ -2,6 +2,7 @@ package com.julflips.map_printer;
 
 import com.julflips.map_printer.modules.CarpetPrinter;
 import com.julflips.map_printer.modules.FullBlockPrinter;
+import com.julflips.map_printer.modules.StaircasingPrinter;
 import com.mojang.logging.LogUtils;
 import meteordevelopment.meteorclient.addons.MeteorAddon;
 import meteordevelopment.meteorclient.systems.modules.Category;
@@ -19,6 +20,7 @@ public class Addon extends MeteorAddon {
         // Modules
         Modules.get().add(new CarpetPrinter());
         Modules.get().add(new FullBlockPrinter());
+        Modules.get().add(new StaircasingPrinter());
 
     }
 

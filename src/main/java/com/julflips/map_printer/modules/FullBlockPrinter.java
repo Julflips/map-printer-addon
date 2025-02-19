@@ -414,7 +414,7 @@ public class FullBlockPrinter extends Module {
     private void refillInventory(HashMap<Block, Integer> invMaterial) {
         //Fills restockList with required items
         restockList.clear();
-        HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), blockPaletteDict, availableSlots.size(), map);
+        HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), availableSlots.size(), map);
         for (Block material : invMaterial.keySet()) {
             int oldAmount = requiredItems.remove(material);
             requiredItems.put(material, oldAmount - invMaterial.get(material));
@@ -596,7 +596,7 @@ public class FullBlockPrinter extends Module {
                     }
                     info("Inventory slots available for building: " + availableSlots);
 
-                    HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), blockPaletteDict, availableSlots.size(), map);
+                    HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), availableSlots.size(), map);
                     Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(requiredItems, availableSlots);
                     if (invInformation.getLeft().size() != 0) {
                         checkpoints.add(0, new Pair(dumpStation.getLeft(), new Pair("dump", null)));
@@ -894,7 +894,7 @@ public class FullBlockPrinter extends Module {
         if (state == State.Dumping) {
             int dumpSlot = getDumpSlot();
             if (dumpSlot == -1) {
-                HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), blockPaletteDict, availableSlots.size(), map);
+                HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), availableSlots.size(), map);
                 Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(requiredItems, availableSlots);
                 refillInventory(invInformation.getRight());
                 state = State.Walking;
@@ -1089,7 +1089,7 @@ public class FullBlockPrinter extends Module {
     }
 
     private int getDumpSlot() {
-        HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), blockPaletteDict, availableSlots.size(), map);
+        HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), availableSlots.size(), map);
         Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(requiredItems, availableSlots);
         if (invInformation.getLeft().isEmpty()) {
             return -1;
@@ -1264,13 +1264,13 @@ public class FullBlockPrinter extends Module {
             blockPaletteDict = Utils.getBlockPalette(paletteList);
 
             NbtList blockList  = (NbtList) nbt.get("blocks");
-            map = Utils.fillBlockPalette(blockList, blockPaletteDict);
+            map = Utils.generateMapArray(blockList, blockPaletteDict);
 
             //Check if a full 128x128 map is present
             for (int x = 0; x < map.length; x++) {
                 for (int z = 0; z < map[x].length; z++) {
                     if (map[x][z] == null) {
-                        warning("No 2D 128x128 map preset in file: " + file.getName());
+                        warning("No 2D 128x128 map present in file: " + file.getName());
                         return false;
                     }
                 }

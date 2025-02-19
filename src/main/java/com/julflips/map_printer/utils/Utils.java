@@ -92,14 +92,10 @@ public class Utils {
         return slots;
     }
 
-    public static HashMap<Block, Integer> getRequiredItems(BlockPos mapCorner, int linesPerRun, HashMap<Integer, Pair<Block, Integer>> blockPaletteDict, int availableSlotsSize, Block[][] map) {
-        HashMap<Block, Integer> requiredItems = new HashMap<>();
-        for (Pair<Block, Integer> p : blockPaletteDict.values()) {
-            requiredItems.put(p.getLeft(), 0);
-        }
-
+    public static HashMap<Block, Integer> getRequiredItems(BlockPos mapCorner, int linesPerRun, int availableSlotsSize, Block[][] map) {
         //Calculate the next items to restock
         //Iterate over map. Player has to be able to see the complete map area
+        HashMap<Block, Integer> requiredItems = new HashMap<>();
         boolean isStartSide = true;
         for (int x = 0; x < 128; x += linesPerRun) {
             for (int z = 0; z < 128; z++) {
@@ -111,6 +107,7 @@ public class Utils {
                     if (blockState.isAir() && map[x+lineBonus][adjustedZ] != null) {
                         //ChatUtils.info("Add material for: " + mapCorner.add(x + lineBonus, 0, adjustedZ).toShortString());
                         Block material = map[x+lineBonus][adjustedZ];
+                        if (!requiredItems.containsKey(material)) requiredItems.put(material, 0);
                         requiredItems.put(material, requiredItems.get(material) + 1);
                         //Check if the item fits into inventory. If not, undo the last increment and return
                         if (stacksRequired(requiredItems) > availableSlotsSize) {
@@ -318,7 +315,7 @@ public class Utils {
         return blockPaletteDict;
     }
 
-    public static Block[][] fillBlockPalette(NbtList blockList, HashMap<Integer, Pair<Block, Integer>> blockPalette) {
+    public static Block[][] generateMapArray(NbtList blockList, HashMap<Integer, Pair<Block, Integer>> blockPalette) {
         //Calculating the map offset
         int maxHeight = Integer.MIN_VALUE;
         int minX = Integer.MAX_VALUE;
