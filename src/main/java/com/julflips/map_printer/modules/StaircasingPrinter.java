@@ -324,7 +324,7 @@ public class StaircasingPrinter extends Module {
     ArrayList<Pair<Vec3d, Pair<String, BlockPos>>> checkpoints;    //(GoalPos, (checkpointAction, targetBlock))
     ArrayList<File> startedFiles;
     ArrayList<ClickSlotC2SPacket> invActionPackets;
-    Pair<Block, Staircasing>[][] map;
+    Pair<Block, Integer>[][] map;
     File mapFolder;
     File mapFile;
 
@@ -449,8 +449,9 @@ public class StaircasingPrinter extends Module {
         }
     }
 
-    private Pair<Block, Staircasing>[][] generateMapArray(NbtList blockList) {
-        Integer[][] heightMap = new Integer[128][129];
+    private Pair<Block, Integer>[][] generateMapArray(NbtList blockList) {
+        // Get the highest block of each column
+        Pair<Block, Integer>[][] absoluteHeightMap = new Pair[128][129];
         for (int i = 0; i < blockList.size(); i++) {
             NbtCompound block = blockList.getCompound(i);
             int blockId = block.getInt("state");
@@ -459,40 +460,33 @@ public class StaircasingPrinter extends Module {
             int x = pos.getInt(0);
             int y = pos.getInt(1);
             int z = pos.getInt(2);
-            if (heightMap[x][z] == null || heightMap[x][z] < y) {
-                heightMap[x][z] = y;
+            if (absoluteHeightMap[x][z] == null || absoluteHeightMap[x][z].getRight() < y) {
+                Block material = blockPaletteDict.get(block.getInt("state")).getLeft();
+                absoluteHeightMap[x][z] = new Pair<>(material, y);
             }
         }
-
-        Pair<Block, Staircasing>[][] blockHeightMap = new Pair[128][128];
-        for (int i = 0; i < blockList.size(); i++) {
-            NbtCompound block = blockList.getCompound(i);
-            NbtList pos = block.getList("pos", 3);
-            int x = pos.getInt(0);
-            int y = pos.getInt(1);
-            int z = pos.getInt(2);
-            if (z < 1 || y != heightMap[x][z]) continue;
-            int blockId = block.getInt("state");
-            blockPaletteDict.put(blockId, new Pair(blockPaletteDict.get(blockId).getLeft(), blockPaletteDict.get(blockId).getRight() + 1));
-            Staircasing staircasing = Staircasing.None;
-            if (heightMap[x][z] < heightMap[x][z-1]) staircasing = Staircasing.Down;
-            if (heightMap[x][z] > heightMap[x][z-1]) staircasing = Staircasing.Up;
-            blockHeightMap[x][z-1] = new Pair<>(blockPaletteDict.get(blockId).getLeft(), staircasing);
+        // Smooth the y pos out to max 1 block difference
+        Pair<Block, Integer>[][] smoothedHeightMap = new Pair[128][128];
+        for (int x = 0; x < absoluteHeightMap.length; x++) {
+            int totalYDiff = 0;
+            for (int z = 1; z < absoluteHeightMap[0].length; z++) {
+                int predecessorY = absoluteHeightMap[x][z-1].getRight();
+                int currentY = absoluteHeightMap[x][z].getRight();
+                totalYDiff += Math.max(-1, Math.min(currentY - predecessorY, 1));
+                smoothedHeightMap[x][z-1] = new Pair<>(absoluteHeightMap[x][z].getLeft(), totalYDiff);
+            }
         }
-        return blockHeightMap;
+        return smoothedHeightMap;
     }
 
     @EventHandler
     private void onRender(Render3DEvent event) {
         if (map == null) return;
-        int baseY = mc.player.getBlockY();
+        BlockPos blockPos = mc.player.getBlockPos();
         for (int x = 0; x < map.length; x++) {
-            int currentY = baseY;
             for (int z = 0; z < map[0].length; z++) {
-                if (map[x][z].getRight() == Staircasing.Up) currentY++;
-                if (map[x][z].getRight() == Staircasing.Down) currentY--;
-                BlockPos renderPos = new BlockPos(x, currentY, z);
-                event.renderer.box(mc.player.getBlockPos().add(renderPos), color.get(), color.get(), ShapeMode.Lines, 0);
+                BlockPos renderPos = blockPos.add(x, map[x][z].getRight(), z);
+                event.renderer.box(renderPos, color.get(), color.get(), ShapeMode.Lines, 0);
             }
         }
     }
@@ -526,11 +520,5 @@ public class StaircasingPrinter extends Module {
     private enum ErrorAction {
         Ignore,
         ToggleOff
-    }
-
-    private enum Staircasing {
-        Up,
-        Down,
-        None
     }
 }
