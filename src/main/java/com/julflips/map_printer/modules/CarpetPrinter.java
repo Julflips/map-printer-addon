@@ -1162,7 +1162,7 @@ public class CarpetPrinter extends Module {
 
     private File getNextMapFile() {
         for (File file : mapFolder.listFiles()) {
-            if (!startedFiles.contains(file) && file.isFile()) {
+            if (!startedFiles.contains(file) && file.isFile() && file.getName().toLowerCase().endsWith(".nbt")) {
                 startedFiles.add(file);
                 return file;
             }
