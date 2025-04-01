@@ -591,6 +591,7 @@ public class CarpetPrinter extends Module {
             }
             if (foundItem == null) {
                 warning("No items found in chest.");
+                state = State.SelectingChests;
                 return;
             }
             if (isMixedContent) {

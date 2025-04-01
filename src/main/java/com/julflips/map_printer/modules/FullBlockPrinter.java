@@ -79,6 +79,13 @@ public class FullBlockPrinter extends Module {
         .build()
     );
 
+    private final Setting<List<Block>> startBlock = sgGeneral.add(new BlockListSetting.Builder()
+        .name("start-Block")
+        .description("Which block to interact with to start the printing process.")
+        .defaultValue(Blocks.STONE_BUTTON)
+        .build()
+    );
+
     private final Setting<Integer> mapFillSquareSize = sgGeneral.add(new IntSetting.Builder()
         .name("map-fill-square-size")
         .description("The radius of the square the bot fill walk to explore the map.")
@@ -575,8 +582,10 @@ public class FullBlockPrinter extends Module {
                 }
                 break;
             case SelectingChests:
+                if (startBlock.get().isEmpty()) warning("No block selected as Start Block! Please select one in the settings.");
                 blockPos = packet.getBlockHitResult().getBlockPos();
-                if (blockPos.offset(packet.getBlockHitResult().getSide()).equals(mapCorner)) {
+                BlockState blockState = mc.world.getBlockState(blockPos);
+                if (startBlock.get().contains(blockState.getBlock())) {
                     //Check if requirements to start building are met
                     if (materialDict.size() == 0) {
                         warning("No Material Chests selected!");
@@ -650,6 +659,11 @@ public class FullBlockPrinter extends Module {
                 return;
             }
 
+            if (foundItem == null) {
+                warning("No items found in chest.");
+                state = State.SelectingChests;
+                return;
+            }
             Block chestContentBlock = Registries.BLOCK.get(Identifier.of(foundItem.toString()));
             info("Registered §a" + chestContentBlock.getName().getString());
             if (!materialDict.containsKey(chestContentBlock)) materialDict.put(chestContentBlock, new ArrayList<>());

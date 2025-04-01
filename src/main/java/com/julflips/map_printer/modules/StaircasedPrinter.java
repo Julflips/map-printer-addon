@@ -78,6 +78,13 @@ public class StaircasedPrinter extends Module {
         .build()
     );
 
+    private final Setting<List<Block>> startBlock = sgGeneral.add(new BlockListSetting.Builder()
+        .name("start-Block")
+        .description("Which block to interact with to start the printing process.")
+        .defaultValue(Blocks.STONE_BUTTON)
+        .build()
+    );
+
     private final Setting<Integer> mapFillSquareSize = sgGeneral.add(new IntSetting.Builder()
         .name("map-fill-square-size")
         .description("The radius of the square the bot fill walk to explore the map.")
@@ -439,7 +446,7 @@ public class StaircasedPrinter extends Module {
             }
             if (lineFinished) continue;
             Vec3d cp1 = mapCorner.toCenterPos().add(x,0,-1);
-            Vec3d cp2 = mapCorner.toCenterPos().add(x,map[x][127].getRight(),128);
+            Vec3d cp2 = mapCorner.toCenterPos().add(x, map[x][127].getRight(), 128);
             checkpoints.add(new Pair(cp1, new Pair("", null)));
             checkpoints.add(new Pair(cp2, new Pair("", null)));
             checkpoints.add(new Pair(cp1, new Pair("lineEnd", null)));
@@ -490,7 +497,7 @@ public class StaircasedPrinter extends Module {
                 int adjustedZ = Utils.getIntervalStart(hitPos.getZ());
                 mapCorner = new BlockPos(adjustedX, hitPos.getY(), adjustedZ);
                 state = State.SelectingPickaxeChest;
-                info("Map Area selected. Select the Pickaxe Chest. (By opening it)");
+                info("Map Area selected. Select the §aPickaxe Chest. (By opening it)");
                 break;
             case SelectingPickaxeChest:
                 BlockPos blockPos = packet.getBlockHitResult().getBlockPos();
@@ -525,8 +532,10 @@ public class StaircasedPrinter extends Module {
                 }
                 break;
             case SelectingChests:
+                if (startBlock.get().isEmpty()) warning("No block selected as Start Block! Please select one in the settings.");
                 blockPos = packet.getBlockHitResult().getBlockPos();
-                if (blockPos.offset(packet.getBlockHitResult().getSide()).equals(mapCorner)) {
+                BlockState blockState = mc.world.getBlockState(blockPos);
+                if (startBlock.get().contains(blockState.getBlock())) {
                     //Check if requirements to start building are met
                     if (materialDict.size() == 0) {
                         warning("No Material Chests selected!");
@@ -600,6 +609,11 @@ public class StaircasedPrinter extends Module {
                 return;
             }
 
+            if (foundItem == null) {
+                warning("No items found in chest.");
+                state = State.SelectingChests;
+                return;
+            }
             Block chestContentBlock = Registries.BLOCK.get(Identifier.of(foundItem.toString()));
             info("Registered §a" + chestContentBlock.getName().getString());
             if (!materialDict.containsKey(chestContentBlock)) materialDict.put(chestContentBlock, new ArrayList<>());
