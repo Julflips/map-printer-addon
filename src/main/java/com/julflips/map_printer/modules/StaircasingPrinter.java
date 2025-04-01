@@ -2,19 +2,24 @@ package com.julflips.map_printer.modules;
 
 import com.julflips.map_printer.Addon;
 import com.julflips.map_printer.utils.Utils;
+import meteordevelopment.meteorclient.events.packets.PacketEvent;
 import meteordevelopment.meteorclient.events.render.Render3DEvent;
 import meteordevelopment.meteorclient.gui.utils.StarscriptTextBoxRenderer;
 import meteordevelopment.meteorclient.renderer.ShapeMode;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
+import meteordevelopment.meteorclient.utils.player.PlayerUtils;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.Block;
+import net.minecraft.block.*;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.network.packet.c2s.play.ClickSlotC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
 import net.minecraft.util.Pair;
 import net.minecraft.util.hit.BlockHitResult;
@@ -26,21 +31,14 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import static meteordevelopment.meteorclient.MeteorClient.mc;
+
 public class StaircasingPrinter extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
     private final SettingGroup sgError = settings.createGroup("Error Handling");
     private final SettingGroup sgRender = settings.createGroup("Render");
 
     //General
-
-    private final Setting<Integer> linesPerRun = sgGeneral.add(new IntSetting.Builder()
-        .name("lines-per-run")
-        .description("How many lines to place in parallel per run.")
-        .defaultValue(3)
-        .min(1)
-        .sliderRange(1, 5)
-        .build()
-    );
 
     private final Setting<Double> checkpointBuffer = sgGeneral.add(new DoubleSetting.Builder()
         .name("checkpoint-buffer")
@@ -400,6 +398,198 @@ public class StaircasingPrinter extends Module {
         info("Select the §aMap Building Area (128x128)");
     }
 
+    private void refillInventory(HashMap<Block, Integer> invMaterial) {
+        //Fills restockList with required items
+        restockList.clear();
+        HashMap<Block, Integer> requiredItems = getRequiredItems(mapCorner, availableSlots.size(), map);
+        for (Block material : invMaterial.keySet()) {
+            int oldAmount = requiredItems.remove(material);
+            requiredItems.put(material, oldAmount - invMaterial.get(material));
+        }
+
+        for (Block block: requiredItems.keySet()) {
+            if (requiredItems.get(block) <= 0) continue;
+            int stacks = (int) Math.ceil((float) requiredItems.get(block) / 64f);
+            info("Restocking §a" + stacks + " stacks " + block.getName().getString() + " (" + requiredItems.get(block) + ")");
+            restockList.add(0, Triple.of(block , stacks, requiredItems.get(block)));
+        }
+        addClosestRestockCheckpoint();
+    }
+
+    private void addClosestRestockCheckpoint() {
+        //Determine closest restock chest for material in restock list
+        if (restockList.size() == 0) return;
+        double smallestDistance = Double.MAX_VALUE;
+        Triple<Block, Integer, Integer> closestEntry = null;
+        Pair<BlockPos, Vec3d> restockPos = null;
+        for (Triple<Block, Integer, Integer> entry : restockList) {
+            Pair<BlockPos, Vec3d> bestRestockPos = getBestChest(entry.getLeft());
+            if (bestRestockPos.getLeft() == null) {
+                warning("No chest found for " + entry.getLeft().getName().getString());
+                toggle();
+                return;
+            }
+            double chestDistance = PlayerUtils.distanceTo(bestRestockPos.getRight());
+            if (chestDistance < smallestDistance) {
+                smallestDistance = chestDistance;
+                closestEntry = entry;
+                restockPos = bestRestockPos;
+            }
+        }
+        //Set closest material as first and as checkpoint
+        restockList.remove(closestEntry);
+        restockList.add(0, closestEntry);
+        checkpoints.add(0, new Pair(restockPos.getRight(), new Pair("refill", restockPos.getLeft())));
+    }
+
+    private void calculateBuildingPath(boolean cornerSide, boolean sprintFirst) {
+        //Iterate over map and skip completed lines. Player has to be able to see the complete map area
+        //Fills checkpoints list
+        checkpoints.clear();
+        for (int x = 0; x < 128; x++) {
+            boolean lineFinished = true;
+            for (int z = 0; z < 128; z++) {
+                BlockState blockstate = mc.world.getBlockState(mapCorner.add(x, map[x][z].getRight(), z));
+                if (blockstate.isAir()) {
+                    lineFinished = false;
+                    break;
+                }
+            }
+            if (lineFinished) continue;
+            Vec3d cp1 = mapCorner.toCenterPos().add(x,0,-1);
+            Vec3d cp2 = mapCorner.toCenterPos().add(x,map[x][127].getRight(),128);
+            checkpoints.add(new Pair(cp1, new Pair("nextLine", null)));
+            checkpoints.add(new Pair(cp2, new Pair("lineEnd", null)));
+        }
+        if (checkpoints.size() > 0 && sprintFirst) {
+            //Make player sprint to the start of the map
+            Pair<Vec3d, Pair<String, BlockPos>>firstPoint = checkpoints.remove(0);
+            checkpoints.add(0, new Pair(firstPoint.getLeft(), new Pair("sprint", firstPoint.getRight().getRight())));
+        }
+    }
+
+    private boolean arePlacementsCorrect() {
+        boolean valid = true;
+        for (int x = 0; x < 128; x++) {
+            for (int z = 0; z < 128; z++) {
+                BlockState blockState = mc.world.getBlockState(mapCorner.add(x , 0, z));
+                if (!blockState.isAir()) {
+                    if (map[x][z].getLeft() != blockState.getBlock()) {
+                        int xError = x + mapCorner.getX();
+                        int zError = z + mapCorner.getZ();
+                        if (logErrors.get()) warning("Error at "+xError+", "+zError+". " +
+                            "Is "+blockState.getBlock().getName().getString()+" - Should be "+map[x][z].getLeft().getName().getString());
+                        valid = false;
+                    }
+                }
+            }
+        }
+        return valid;
+    }
+
+    @EventHandler
+    private void onSendPacket(PacketEvent.Send event) {
+        if (event.packet instanceof PlayerMoveC2SPacket) {
+            // ToDo: Do jump stuff here
+        }
+        if (state == State.SelectingDumpStation && event.packet instanceof PlayerActionC2SPacket packet
+            && packet.getAction() == PlayerActionC2SPacket.Action.DROP_ITEM) {
+            dumpStation = new Pair<>(mc.player.getPos(), new Pair<>(mc.player.getYaw(), mc.player.getPitch()));
+            state = State.SelectingFinishedMapChest;
+            info("Dump Station selected. Select the §aFinished Map Chest");
+            return;
+        }
+        if (!(event.packet instanceof PlayerInteractBlockC2SPacket packet) || state == null) return;
+        switch (state) {
+            case SelectingMapArea:
+                BlockPos hitPos = packet.getBlockHitResult().getBlockPos().offset(packet.getBlockHitResult().getSide());
+                int adjustedX = Utils.getIntervalStart(hitPos.getX());
+                int adjustedZ = Utils.getIntervalStart(hitPos.getZ());
+                mapCorner = new BlockPos(adjustedX, hitPos.getY(), adjustedZ);
+                state = State.SelectingNorthReset;
+                info("Map Area selected. Press the §aNorth Reset Trapped Chest §7used to remove the built map");
+                break;
+            case SelectingNorthReset:
+                BlockPos blockPos = packet.getBlockHitResult().getBlockPos();
+                if (mc.world.getBlockState(blockPos).getBlock() instanceof TrappedChestBlock) {
+                    northReset = new Pair<>(packet.getBlockHitResult(), mc.player.getPos());
+                    info("North Reset Trapped Chest selected. Select the §aSouth Reset Trapped Chest.");
+                    state = State.SelectingSouthReset;
+                }
+                break;
+            case SelectingSouthReset:
+                blockPos = packet.getBlockHitResult().getBlockPos();
+                if (mc.world.getBlockState(blockPos).getBlock() instanceof TrappedChestBlock) {
+                    southReset = new Pair<>(packet.getBlockHitResult(), mc.player.getPos());
+                    info("South Reset Trapped Chest selected. Select the §aCartography Table.");
+                    state = State.SelectingTable;
+                }
+                break;
+            case SelectingTable:
+                blockPos = packet.getBlockHitResult().getBlockPos();
+                if (mc.world.getBlockState(blockPos).getBlock().equals(Blocks.CARTOGRAPHY_TABLE)) {
+                    cartographyTable = new Pair<>(packet.getBlockHitResult(), mc.player.getPos());
+                    info("Cartography Table selected. Throw an item into the §aDump Station.");
+                    state = State.SelectingDumpStation;
+                }
+                break;
+            case SelectingFinishedMapChest:
+                blockPos = packet.getBlockHitResult().getBlockPos();
+                if (mc.world.getBlockState(blockPos).getBlock() instanceof AbstractChestBlock) {
+                    finishedMapChest = new Pair<>(packet.getBlockHitResult(), mc.player.getPos());
+                    info("Finished Map Chest selected. Select all §aMaterial- and Map-Chests.");
+                    state = State.SelectingChests;
+                }
+                break;
+            case SelectingChests:
+                blockPos = packet.getBlockHitResult().getBlockPos();
+                if (blockPos.offset(packet.getBlockHitResult().getSide()).equals(mapCorner)) {
+                    //Check if requirements to start building are met
+                    if (materialDict.size() == 0) {
+                        warning("No Material Chests selected!");
+                        return;
+                    }
+                    if (mapMaterialChests.size() == 0) {
+                        warning("No Map Chests selected!");
+                        return;
+                    }
+                    Utils.setWPressed(true);
+                    calculateBuildingPath(true, true);
+                    availableSlots = Utils.getAvailableSlots(materialDict);
+                    for (int slot : availableSlots) {
+                        if (slot < 9) {
+                            availableHotBarSlots.add(slot);
+                        }
+                    }
+                    info("Inventory slots available for building: " + availableSlots);
+
+                    HashMap<Block, Integer> requiredItems = getRequiredItems(mapCorner, availableSlots.size(), map);
+                    Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(requiredItems, availableSlots);
+                    if (invInformation.getLeft().size() != 0) {
+                        checkpoints.add(0, new Pair(dumpStation.getLeft(), new Pair("dump", null)));
+                    } else {
+                        refillInventory(invInformation.getRight());
+                    }
+                    if (availableHotBarSlots.size() == 0) {
+                        warning("No free slots found in hot-bar!");
+                        toggle();
+                        return;
+                    }
+                    if (availableSlots.size() < 2) {
+                        warning("You need at least 2 free inventory slots!");
+                        toggle();
+                        return;
+                    }
+                    state = State.Walking;
+                }
+                if (mc.world.getBlockState(blockPos).getBlock().equals(Blocks.CHEST)) {
+                    tempChestPos = blockPos;
+                    state = State.AwaitContent;
+                }
+                break;
+        }
+    }
+
     private boolean prepareNextMapFile() {
         for (File file : mapFolder.listFiles()) {
             if (!startedFiles.contains(file) && file.isFile()) {
@@ -479,16 +669,39 @@ public class StaircasingPrinter extends Module {
         return smoothedHeightMap;
     }
 
+    public HashMap<Block, Integer> getRequiredItems(BlockPos mapCorner, int availableSlotsSize, Pair<Block, Integer>[][] map) {
+        //Calculate the next items to restock
+        //Iterate over map. Player has to be able to see the complete map area
+        HashMap<Block, Integer> requiredItems = new HashMap<>();
+        for (int x = 0; x < 128; x++) {
+            for (int z = 0; z < 128; z++) {
+                BlockState blockState = mc.world.getBlockState(mapCorner.add(x, 0, z));
+                if (blockState.isAir() && map[x][z] != null) {
+                    //ChatUtils.info("Add material for: " + mapCorner.add(x + lineBonus, 0, adjustedZ).toShortString());
+                    Block material = map[x][z].getLeft();
+                    if (!requiredItems.containsKey(material)) requiredItems.put(material, 0);
+                    requiredItems.put(material, requiredItems.get(material) + 1);
+                    //Check if the item fits into inventory. If not, undo the last increment and return
+                    if (Utils.stacksRequired(requiredItems) > availableSlotsSize) {
+                        requiredItems.put(material, requiredItems.get(material) - 1);
+                        return requiredItems;
+                    }
+                }
+            }
+        }
+        return requiredItems;
+    }
+
     @EventHandler
     private void onRender(Render3DEvent event) {
         if (map == null) return;
-        BlockPos blockPos = mc.player.getBlockPos();
+        /*BlockPos blockPos = mc.player.getBlockPos();
         for (int x = 0; x < map.length; x++) {
             for (int z = 0; z < map[0].length; z++) {
                 BlockPos renderPos = blockPos.add(x, map[x][z].getRight(), z);
                 event.renderer.box(renderPos, color.get(), color.get(), ShapeMode.Lines, 0);
             }
-        }
+        }*/
     }
 
     private enum State {

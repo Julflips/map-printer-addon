@@ -67,7 +67,7 @@ public class Utils {
         return list;
     }
 
-    private static int stacksRequired(HashMap<Block, Integer> requiredItems) {
+    public static int stacksRequired(HashMap<Block, Integer> requiredItems) {
         //Calculates how many slots are required for the dictionary {Block: Amount}
         int stacks = 0;
         for (int amount: requiredItems.values()) {

@@ -205,12 +205,12 @@ public class FullBlockPrinter extends Module {
         .build()
     );
 
-    private final Setting<Boolean> disableOnFinished = sgGeneral.add(new BoolSetting.Builder()
+    /*private final Setting<Boolean> disableOnFinished = sgGeneral.add(new BoolSetting.Builder()
         .name("disable-on-finished")
         .description("Disables the printer when all nbt files are finished.")
         .defaultValue(true)
         .build()
-    );
+    );*/
 
     private final Setting<Boolean> printMaxRequirements = sgGeneral.add(new BoolSetting.Builder()
         .name("print-max-requirements")
