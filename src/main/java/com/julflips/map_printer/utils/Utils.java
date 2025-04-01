@@ -1,5 +1,6 @@
 package com.julflips.map_printer.utils;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import meteordevelopment.meteorclient.events.game.GameLeftEvent;
 import meteordevelopment.meteorclient.events.packets.PacketEvent;
 import meteordevelopment.meteorclient.utils.misc.input.Input;
@@ -10,8 +11,10 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtList;
+import net.minecraft.network.packet.c2s.play.ClickSlotC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
 import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
@@ -370,5 +373,25 @@ public class Utils {
             }
         }
         return invalidPlacements;
+    }
+
+    public static void getOneItem(int sourceSlot, boolean avoidFirstHotBar, ArrayList<Integer> availableSlots,
+                            ArrayList<Integer> availableHotBarSlots, InventoryS2CPacket packet) {
+        int targetSlot = availableHotBarSlots.get(0);
+        if (avoidFirstHotBar) {
+            targetSlot = availableSlots.get(0);
+            if (availableSlots.get(0) == availableHotBarSlots.get(0)) {
+                targetSlot = availableSlots.get(1);
+            }
+        }
+        if (targetSlot < 9) {
+            targetSlot += 27;
+        } else {
+            targetSlot -= 9;
+        }
+        targetSlot = packet.getContents().size() - 36 + targetSlot;
+        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, sourceSlot, 0, SlotActionType.PICKUP , new ItemStack(Items.MAP), Int2ObjectMaps.emptyMap()));
+        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, targetSlot, 1, SlotActionType.PICKUP, new ItemStack(Items.MAP), Int2ObjectMaps.emptyMap()));
+        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, sourceSlot, 0, SlotActionType.PICKUP , new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
     }
 }
