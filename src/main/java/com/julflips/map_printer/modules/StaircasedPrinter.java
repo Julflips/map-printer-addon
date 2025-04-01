@@ -424,7 +424,7 @@ public class StaircasedPrinter extends Module {
         checkpoints.add(0, new Pair(restockPos.getRight(), new Pair("refill", restockPos.getLeft())));
     }
 
-    private void calculateBuildingPath(boolean cornerSide, boolean sprintFirst) {
+    private void calculateBuildingPath(boolean sprintFirst) {
         //Iterate over map and skip completed lines. Player has to be able to see the complete map area
         //Fills checkpoints list
         checkpoints.clear();
@@ -440,8 +440,9 @@ public class StaircasedPrinter extends Module {
             if (lineFinished) continue;
             Vec3d cp1 = mapCorner.toCenterPos().add(x,0,-1);
             Vec3d cp2 = mapCorner.toCenterPos().add(x,map[x][127].getRight(),128);
-            checkpoints.add(new Pair(cp1, new Pair("nextLine", null)));
-            checkpoints.add(new Pair(cp2, new Pair("lineEnd", null)));
+            checkpoints.add(new Pair(cp1, new Pair("", null)));
+            checkpoints.add(new Pair(cp2, new Pair("", null)));
+            checkpoints.add(new Pair(cp1, new Pair("lineEnd", null)));
         }
         if (checkpoints.size() > 0 && sprintFirst) {
             //Make player sprint to the start of the map
@@ -536,7 +537,7 @@ public class StaircasedPrinter extends Module {
                         return;
                     }
                     Utils.setWPressed(true);
-                    calculateBuildingPath(true, true);
+                    calculateBuildingPath(true);
                     availableSlots = Utils.getAvailableSlots(materialDict);
                     for (int slot : availableSlots) {
                         if (slot < 9) {
@@ -818,8 +819,7 @@ public class StaircasedPrinter extends Module {
             switch (checkpointAction.getLeft()) {
                 case "lineEnd":
                     arePlacementsCorrect();
-                    boolean atCornerSide = goal.z == mapCorner.north().toCenterPos().z;
-                    calculateBuildingPath(atCornerSide, false);
+                    calculateBuildingPath(false);
                     break;
                 case "mapMaterialChest":
                     BlockPos mapMaterialChest = getBestChest(Blocks.CARTOGRAPHY_TABLE).getLeft();
@@ -887,8 +887,7 @@ public class StaircasedPrinter extends Module {
         } else if (sprinting.get() != SprintMode.Off) {
             mc.player.setSprinting(true);
         }
-        if (nextAction == "refill" || nextAction == "dump" || nextAction == "walkRestock"
-            || nextAction == "nextLine") return;
+        if (nextAction == "refill" || nextAction == "dump" || nextAction == "walkRestock") return;
 
         ArrayList<BlockPos> placements = new ArrayList<>();
         for (int i = 0; i < allowedPlacements; i++) {
@@ -1131,6 +1130,9 @@ public class StaircasedPrinter extends Module {
                 Block material = blockPaletteDict.get(block.getInt("state")).getLeft();
                 absoluteHeightMap[x][z] = new Pair<>(material, y);
             }
+            if (z > 0) {
+                blockPaletteDict.put(blockId, new Pair(blockPaletteDict.get(blockId).getLeft(), blockPaletteDict.get(blockId).getRight()+1));
+            }
         }
         // Smooth the y pos out to max 1 block difference
         Pair<Block, Integer>[][] smoothedHeightMap = new Pair[128][128];
@@ -1172,6 +1174,9 @@ public class StaircasedPrinter extends Module {
     @EventHandler
     private void onRender(Render3DEvent event) {
         if(mapCorner == null || !render.get()) return;
+
+        event.renderer.box(mapCorner.getX(), mapCorner.getY(), mapCorner.getZ(), mapCorner.getX()+128, mapCorner.getY(), mapCorner.getZ()+128, color.get(), color.get(), ShapeMode.Lines, 0);
+
         if (renderMap.get()) {
             for (int x = 0; x < map.length; x++) {
                 for (int z = 0; z < map[0].length; z++) {
