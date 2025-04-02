@@ -446,7 +446,7 @@ public class StaircasedPrinter extends Module {
             }
             if (lineFinished) continue;
             Vec3d cp1 = mapCorner.toCenterPos().add(x,0,-1);
-            Vec3d cp2 = mapCorner.toCenterPos().add(x, map[x][127].getRight(), 128);
+            Vec3d cp2 = mapCorner.toCenterPos().add(x, map[x][127].getRight(), map[0].length-1);
             checkpoints.add(new Pair(cp1, new Pair("", null)));
             checkpoints.add(new Pair(cp2, new Pair("", null)));
             checkpoints.add(new Pair(cp1, new Pair("lineEnd", null)));
@@ -907,19 +907,15 @@ public class StaircasedPrinter extends Module {
         for (int i = 0; i < allowedPlacements; i++) {
             AtomicReference<BlockPos> closestPos = new AtomicReference<>();
             final Vec3d currentGoal = goal;
-            BlockPos playerGroundPos = mc.player.getBlockPos().add(0 , mapCorner.getY() - mc.player.getBlockY(), 0);
-            Utils.iterateBlocks(playerGroundPos, (int) Math.ceil(placeRange.get()) + 1, 0,((blockPos, blockState) -> {
+            Utils.iterateBlocks(mc.player.getBlockPos(), (int) Math.ceil(placeRange.get()) + 1, (int) Math.ceil(placeRange.get()) + 1,((blockPos, blockState) -> {
                 Double posDistance = PlayerUtils.distanceTo(blockPos.toCenterPos());
-                if ((blockState.isAir()) && posDistance <= placeRange.get() && isWithingMap(blockPos)
-                    && blockPos.getX() <= currentGoal.getX() && !placements.contains(blockPos)) {
+                BlockPos relativePos = blockPos.subtract(mapCorner);
+                if (blockPos.getX() <= currentGoal.getX() && !placements.contains(blockPos)
+                    && (blockState.isAir()) && posDistance <= placeRange.get() && isWithingMap(blockPos)
+                    && relativePos.getY() == map[relativePos.getX()][relativePos.getZ()].getRight()) {
                     if (closestPos.get() == null) {
-                        if (!mc.world.getBlockState(blockPos.west()).isAir()) closestPos.set(new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
-                        return;
-                    }
-                    int blockPosZDiff = Math.abs(mc.player.getBlockPos().getZ() - blockPos.getZ());
-                    int closestPosZDiff = Math.abs(mc.player.getBlockPos().getZ() - closestPos.get().getZ());
-                    if (!mc.world.getBlockState(blockPos.west()).isAir() && (blockPosZDiff < closestPosZDiff ||
-                        (blockPosZDiff == closestPosZDiff && blockPos.getX() < closestPos.get().getX()))) {
+                        closestPos.set(new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
+                    } else if (PlayerUtils.distanceTo(blockPos) < PlayerUtils.distanceTo(closestPos.get())) {
                         closestPos.set(new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
                     }
                 }
