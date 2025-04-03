@@ -290,6 +290,7 @@ public class StaircasedPrinter extends Module {
     long lastTickTime;
     boolean closeNextInvPacket;
     boolean atEdge;
+    boolean originalAutoJumpState;
     State state;
     State oldState;
     Pair<BlockHitResult, Vec3d> pickaxeChest;
@@ -319,6 +320,8 @@ public class StaircasedPrinter extends Module {
     @Override
     public void onActivate() {
         lastTickTime = System.currentTimeMillis();
+        originalAutoJumpState = mc.options.getAutoJump().getValue();
+        mc.options.getAutoJump().setValue(true);
         if (!activationReset.get() && checkpoints != null) {
             return;
         }
@@ -385,6 +388,11 @@ public class StaircasedPrinter extends Module {
         }
         state = State.SelectingMapArea;
         info("Select the §aMap Building Area (128x128). (Right-click the edge from the inside)");
+    }
+
+    @Override
+    public void onDeactivate() {
+        mc.options.getAutoJump().setValue(originalAutoJumpState);
     }
 
     private void refillInventory(HashMap<Block, Integer> invMaterial) {
@@ -479,9 +487,6 @@ public class StaircasedPrinter extends Module {
 
     @EventHandler
     private void onSendPacket(PacketEvent.Send event) {
-        if (event.packet instanceof PlayerMoveC2SPacket) {
-            // ToDo: Do jump stuff here
-        }
         if (state == State.SelectingDumpStation && event.packet instanceof PlayerActionC2SPacket packet
             && packet.getAction() == PlayerActionC2SPacket.Action.DROP_ITEM) {
             dumpStation = new Pair<>(mc.player.getPos(), new Pair<>(mc.player.getYaw(), mc.player.getPitch()));
@@ -728,6 +733,7 @@ public class StaircasedPrinter extends Module {
                     }
                 }
                 // ToDo: Start Mining process
+                warning("START MINING");
                 state = State.Walking;
                 break;
         }
@@ -969,14 +975,12 @@ public class StaircasedPrinter extends Module {
         }
         if (lastSwappedMaterial == material) return false;      //Wait for swapped material
         info("No "+ material.getName().getString() + " found in inventory. Resetting...");
-        Vec3d pathCheckpoint1 = mc.player.getPos().offset(Direction.WEST, 1);
-        Vec3d pathCheckpoint2 = new Vec3d(pathCheckpoint1.getX(), pathCheckpoint1.y, mapCorner.north().toCenterPos().getZ());
+        mc.player.setVelocity(0,0,0);
+        Vec3d pathCheckpoint = new Vec3d(mc.player.getX(), mapCorner.toCenterPos().getY(), mapCorner.north().toCenterPos().getZ());
         checkpoints.add(0, new Pair(mc.player.getPos(), new Pair("walkRestock", null)));
-        checkpoints.add(0, new Pair(pathCheckpoint1, new Pair("walkRestock", null)));
-        checkpoints.add(0, new Pair(pathCheckpoint2, new Pair("walkRestock", null)));
+        checkpoints.add(0, new Pair(pathCheckpoint, new Pair("walkRestock", null)));
         checkpoints.add(0, new Pair(dumpStation.getLeft(), new Pair("dump", null)));
-        checkpoints.add(0, new Pair(pathCheckpoint2, new Pair("walkRestock", null)));
-        checkpoints.add(0, new Pair(pathCheckpoint1, new Pair("walkRestock", null)));
+        checkpoints.add(0, new Pair(pathCheckpoint, new Pair("walkRestock", null)));
         return false;
     }
 
@@ -1164,7 +1168,7 @@ public class StaircasedPrinter extends Module {
         HashMap<Block, Integer> requiredItems = new HashMap<>();
         for (int x = 0; x < 128; x++) {
             for (int z = 0; z < 128; z++) {
-                BlockState blockState = mc.world.getBlockState(mapCorner.add(x, 0, z));
+                BlockState blockState = mc.world.getBlockState(mapCorner.add(x, map[x][z].getRight(), z));
                 if (blockState.isAir() && map[x][z] != null) {
                     //ChatUtils.info("Add material for: " + mapCorner.add(x + lineBonus, 0, adjustedZ).toShortString());
                     Block material = map[x][z].getLeft();
