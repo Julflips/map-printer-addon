@@ -32,9 +32,11 @@ import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Pair;
 import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.RaycastContext;
 import org.apache.commons.lang3.tuple.Triple;
 
 import java.io.File;
@@ -470,7 +472,7 @@ public class StaircasedPrinter extends Module {
         boolean valid = true;
         for (int x = 0; x < 128; x++) {
             for (int z = 0; z < 128; z++) {
-                BlockState blockState = mc.world.getBlockState(mapCorner.add(x , 0, z));
+                BlockState blockState = mc.world.getBlockState(mapCorner.add(x ,  map[x][z].getRight(), z));
                 if (!blockState.isAir()) {
                     if (map[x][z].getLeft() != blockState.getBlock()) {
                         int xError = x + mapCorner.getX();
@@ -909,32 +911,34 @@ public class StaircasedPrinter extends Module {
         }
         if (nextAction == "refill" || nextAction == "dump" || nextAction == "walkRestock") return;
 
-        ArrayList<BlockPos> placements = new ArrayList<>();
-        for (int i = 0; i < allowedPlacements; i++) {
-            AtomicReference<BlockPos> closestPos = new AtomicReference<>();
-            final Vec3d currentGoal = goal;
-            Utils.iterateBlocks(mc.player.getBlockPos(), (int) Math.ceil(placeRange.get()) + 1, (int) Math.ceil(placeRange.get()) + 1,((blockPos, blockState) -> {
-                Double posDistance = PlayerUtils.distanceTo(blockPos.toCenterPos());
-                BlockPos relativePos = blockPos.subtract(mapCorner);
-                if (blockPos.getX() <= currentGoal.getX() && !placements.contains(blockPos)
-                    && (blockState.isAir()) && posDistance <= placeRange.get() && isWithingMap(blockPos)
-                    && relativePos.getY() == map[relativePos.getX()][relativePos.getZ()].getRight()) {
-                    if (closestPos.get() == null) {
-                        closestPos.set(new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
-                    } else if (PlayerUtils.distanceTo(blockPos) < PlayerUtils.distanceTo(closestPos.get())) {
-                        closestPos.set(new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
-                    }
-                }
-            }));
+        BlockPos nextPlacementPos = getNextPlacementPos(new ArrayList<BlockPos>());
+        if (nextPlacementPos == null) return;
+        mc.player.setPitch((float) Rotations.getPitch(nextPlacementPos));
 
-            if (closestPos.get() != null) {
-                //Stop placing if restocking
-                placements.add(closestPos.get());
-                if (!tryPlacingBlock(closestPos.get())) {
-                    return;
+       if (nextPlacementPos.getX() <= goal.getX() && canSee(nextPlacementPos.toCenterPos())
+            && PlayerUtils.distanceTo(nextPlacementPos.toCenterPos()) <= placeRange.get()) {
+            tryPlacingBlock(nextPlacementPos);
+        }
+
+        /*ArrayList<BlockPos> placements = new ArrayList<>();
+        BlockPos nextPlacementPos = getNextPlacementPos(placements);
+        if (nextPlacementPos == null) return;
+        mc.player.setPitch((float) Rotations.getPitch(nextPlacementPos));
+
+        for (int i = 0; i < allowedPlacements; i++) {
+            if (nextPlacementPos.getX() <= goal.getX() &&
+                PlayerUtils.distanceTo(nextPlacementPos.toCenterPos()) <= placeRange.get()) {
+                info("Fetch place direction for: "+nextPlacementPos.toShortString()+" | Ignore List: "+placements);
+                Direction placeDirection = getBestPlaceDirection(nextPlacementPos);
+                if (placeDirection != null) {
+                    if (!tryPlacingBlock(nextPlacementPos, placeDirection)) {
+                        return;
+                    }
+                    placements.add(new BlockPos(nextPlacementPos));
+                    nextPlacementPos = getNextPlacementPos(placements);
                 }
             }
-        }
+        }*/
     }
 
     private int getDumpSlot() {
@@ -947,6 +951,7 @@ public class StaircasedPrinter extends Module {
     }
 
     private boolean tryPlacingBlock(BlockPos pos) {
+        info("Place Block at: " + pos.toShortString());
         BlockPos relativePos = pos.subtract(mapCorner);
         Block material = map[relativePos.getX()][relativePos.getZ()].getLeft();
         //info("Placing " + material.getName().getString() + " at: " + relativePos.toShortString());
@@ -955,7 +960,27 @@ public class StaircasedPrinter extends Module {
             if (mc.player.getInventory().getStack(slot).isEmpty()) continue;
             Block foundMaterial = Registries.BLOCK.get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (foundMaterial.equals(material)) {
-                BlockUtils.place(pos, Hand.MAIN_HAND, slot, true,50, true, true, false);
+                //BlockUtils.place(pos, Hand.MAIN_HAND, slot, true,50, true, true, false);
+                InvUtils.swap(slot, false);
+                Direction direction = Direction.UP;
+                Vec3d hitPos = pos.toCenterPos().add(0,-0.5,0);
+                if (mc.player.getY() <= pos.toCenterPos().y) {
+                    direction = Direction.NORTH;
+                    hitPos = pos.toCenterPos().add(0,0,0.5);
+                }
+                info("Direction: " + direction);
+                BlockHitResult bhr = new BlockHitResult(hitPos, direction, pos, false);
+                // BlockUtils.interact(bhr, Hand.MAIN_HAND, true);
+
+                Rotations.rotate(Rotations.getYaw(bhr.getPos()), Rotations.getPitch(bhr.getPos()), 50, () -> {
+                    InvUtils.swap(slot, false);
+
+                    BlockUtils.interact(bhr, Hand.MAIN_HAND, true);
+                    InvUtils.swap(8,true);
+                    BlockUtils.interact(bhr, Hand.MAIN_HAND, true);
+                    InvUtils.swapBack();
+                });
+
                 if (material == lastSwappedMaterial) lastSwappedMaterial = null;
                 return true;
             }
@@ -981,6 +1006,41 @@ public class StaircasedPrinter extends Module {
         checkpoints.add(0, new Pair(pathCheckpoint, new Pair("walkRestock", null)));
         checkpoints.add(0, new Pair(dumpStation.getLeft(), new Pair("dump", null)));
         checkpoints.add(0, new Pair(pathCheckpoint, new Pair("walkRestock", null)));
+        return false;
+    }
+
+    private BlockPos getNextPlacementPos(ArrayList<BlockPos> ignoreList) {
+        for (int x = 0; x < 128; x++) {
+            for (int z = 0; z < 128; z++) {
+                BlockPos blockPos = mapCorner.add(x , map[x][z].getRight(), z);
+                if (ignoreList.contains(blockPos)) continue;
+                BlockState blockState = mc.world.getBlockState(blockPos);
+                if (blockState.isAir()) {
+                    return blockPos;
+                }
+            }
+        }
+        return null;
+    }
+
+    private Direction getBestPlaceDirection(BlockPos blockPos) {
+        for (Direction direction : Arrays.asList(Direction.UP, Direction.NORTH)) {
+            Vec3d offset = new Vec3d(direction.getOffsetX(), direction.getOffsetY(), direction.getOffsetZ()).multiply(0.5);
+            Vec3d testPos = blockPos.toCenterPos().subtract(offset);
+            if (!canSee(testPos)) {
+                info("Cant see: " + direction.getName() + " | " + testPos);
+                continue;
+            }
+            return direction;
+        }
+        return null;
+    }
+
+    private boolean canSee(Vec3d pos) {
+        RaycastContext raycastContext = new RaycastContext(mc.player.getEyePos(), pos, RaycastContext.ShapeType.OUTLINE,
+            RaycastContext.FluidHandling.NONE, mc.player);
+        HitResult hitResult = mc.world.raycast(raycastContext);
+        if (hitResult.getPos().equals(pos)) return true;
         return false;
     }
 
@@ -1050,6 +1110,7 @@ public class StaircasedPrinter extends Module {
 
         BlockHitResult hitResult = new BlockHitResult(chestPos.toCenterPos(), getInteractionSide(chestPos), chestPos, false);
         BlockUtils.interact(hitResult, Hand.MAIN_HAND, true);
+
         //Set timeout for chest interaction
         interactTimeout = retryInteractTimer.get();
         lastInteractedChest = chestPos;
