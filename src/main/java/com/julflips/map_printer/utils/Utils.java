@@ -1,5 +1,6 @@
 package com.julflips.map_printer.utils;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import meteordevelopment.meteorclient.events.game.GameLeftEvent;
 import meteordevelopment.meteorclient.events.packets.PacketEvent;
 import meteordevelopment.meteorclient.utils.misc.input.Input;
@@ -10,8 +11,10 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtList;
+import net.minecraft.network.packet.c2s.play.ClickSlotC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
 import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
@@ -67,7 +70,7 @@ public class Utils {
         return list;
     }
 
-    private static int stacksRequired(HashMap<Block, Integer> requiredItems) {
+    public static int stacksRequired(HashMap<Block, Integer> requiredItems) {
         //Calculates how many slots are required for the dictionary {Block: Amount}
         int stacks = 0;
         for (int amount: requiredItems.values()) {
@@ -92,14 +95,10 @@ public class Utils {
         return slots;
     }
 
-    public static HashMap<Block, Integer> getRequiredItems(BlockPos mapCorner, int linesPerRun, HashMap<Integer, Pair<Block, Integer>> blockPaletteDict, int availableSlotsSize, Block[][] map) {
-        HashMap<Block, Integer> requiredItems = new HashMap<>();
-        for (Pair<Block, Integer> p : blockPaletteDict.values()) {
-            requiredItems.put(p.getLeft(), 0);
-        }
-
+    public static HashMap<Block, Integer> getRequiredItems(BlockPos mapCorner, int linesPerRun, int availableSlotsSize, Block[][] map) {
         //Calculate the next items to restock
         //Iterate over map. Player has to be able to see the complete map area
+        HashMap<Block, Integer> requiredItems = new HashMap<>();
         boolean isStartSide = true;
         for (int x = 0; x < 128; x += linesPerRun) {
             for (int z = 0; z < 128; z++) {
@@ -111,6 +110,7 @@ public class Utils {
                     if (blockState.isAir() && map[x+lineBonus][adjustedZ] != null) {
                         //ChatUtils.info("Add material for: " + mapCorner.add(x + lineBonus, 0, adjustedZ).toShortString());
                         Block material = map[x+lineBonus][adjustedZ];
+                        if (!requiredItems.containsKey(material)) requiredItems.put(material, 0);
                         requiredItems.put(material, requiredItems.get(material) + 1);
                         //Check if the item fits into inventory. If not, undo the last increment and return
                         if (stacksRequired(requiredItems) > availableSlotsSize) {
@@ -318,7 +318,7 @@ public class Utils {
         return blockPaletteDict;
     }
 
-    public static Block[][] fillBlockPalette(NbtList blockList, HashMap<Integer, Pair<Block, Integer>> blockPalette) {
+    public static Block[][] generateMapArray(NbtList blockList, HashMap<Integer, Pair<Block, Integer>> blockPalette) {
         //Calculating the map offset
         int maxHeight = Integer.MIN_VALUE;
         int minX = Integer.MAX_VALUE;
@@ -373,5 +373,25 @@ public class Utils {
             }
         }
         return invalidPlacements;
+    }
+
+    public static void getOneItem(int sourceSlot, boolean avoidFirstHotBar, ArrayList<Integer> availableSlots,
+                            ArrayList<Integer> availableHotBarSlots, InventoryS2CPacket packet) {
+        int targetSlot = availableHotBarSlots.get(0);
+        if (avoidFirstHotBar) {
+            targetSlot = availableSlots.get(0);
+            if (availableSlots.get(0) == availableHotBarSlots.get(0)) {
+                targetSlot = availableSlots.get(1);
+            }
+        }
+        if (targetSlot < 9) {
+            targetSlot += 27;
+        } else {
+            targetSlot -= 9;
+        }
+        targetSlot = packet.getContents().size() - 36 + targetSlot;
+        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, sourceSlot, 0, SlotActionType.PICKUP , new ItemStack(Items.MAP), Int2ObjectMaps.emptyMap()));
+        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, targetSlot, 1, SlotActionType.PICKUP, new ItemStack(Items.MAP), Int2ObjectMaps.emptyMap()));
+        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, sourceSlot, 0, SlotActionType.PICKUP , new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
     }
 }
