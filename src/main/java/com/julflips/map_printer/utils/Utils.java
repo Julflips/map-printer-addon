@@ -27,10 +27,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Random;
+import java.util.*;
 import java.util.function.BiConsumer;
 
 import static meteordevelopment.meteorclient.MeteorClient.mc;
@@ -396,7 +393,11 @@ public class Utils {
     }
 
     public static File getNextMapFile(File mapFolder, ArrayList<File> startedFiles) {
-        for (File file : mapFolder.listFiles()) {
+        File[] files = mapFolder.listFiles();
+        if (files == null) return null;
+        Arrays.sort(files, Comparator.comparing(File::getName));
+
+        for (File file : files) {
             if (!startedFiles.contains(file) && file.isFile() && file.getName().toLowerCase().endsWith(".nbt")) {
                 startedFiles.add(file);
                 return file;

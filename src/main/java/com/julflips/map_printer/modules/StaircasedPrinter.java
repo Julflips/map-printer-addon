@@ -1144,13 +1144,6 @@ public class StaircasedPrinter extends Module {
     private boolean prepareNextMapFile() {
         mapFile = Utils.getNextMapFile(mapFolder, startedFiles);
 
-        for (File file : mapFolder.listFiles()) {
-            if (!startedFiles.contains(file) && file.isFile()) {
-                startedFiles.add(file);
-                mapFile = file;
-                break;
-            }
-        }
         if (mapFile == null) {
             if (disableOnFinished.get()) {
                 info("All nbt files finished");
