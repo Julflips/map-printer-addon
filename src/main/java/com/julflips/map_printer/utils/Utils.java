@@ -394,4 +394,14 @@ public class Utils {
         mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, targetSlot, 1, SlotActionType.PICKUP, new ItemStack(Items.MAP), Int2ObjectMaps.emptyMap()));
         mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, sourceSlot, 0, SlotActionType.PICKUP , new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
     }
+
+    public static File getNextMapFile(File mapFolder, ArrayList<File> startedFiles) {
+        for (File file : mapFolder.listFiles()) {
+            if (!startedFiles.contains(file) && file.isFile() && file.getName().toLowerCase().endsWith(".nbt")) {
+                startedFiles.add(file);
+                return file;
+            }
+        }
+        return null;
+    }
 }

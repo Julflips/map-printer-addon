@@ -377,17 +377,7 @@ public class CarpetPrinter extends Module {
             toggle();
             return;
         }
-        mapFile = getNextMapFile();
-        if (mapFile == null) {
-            warning("No nbt files found in map-printer folder.");
-            toggle();
-            return;
-        }
-        if (!loadNBTFile()) {
-            warning("Failed to read nbt file.");
-            toggle();
-            return;
-        }
+        if (!prepareNextMapFile()) return;
         state = State.SelectingMapArea;
         info("Select the §aMap Building Area (128x128)");
     }
@@ -826,21 +816,7 @@ public class CarpetPrinter extends Module {
         }
 
         if (state == State.AwaitNBTFile) {
-            mapFile = getNextMapFile();
-            if (mapFile == null) {
-                if (disableOnFinished.get()) {
-                    info("All nbt files finished");
-                    toggle();
-                    return;
-                } else {
-                    return;
-                }
-            }
-            if (!loadNBTFile()) {
-                warning("Failed to read schematic file.");
-                toggle();
-                return;
-            }
+            if (!prepareNextMapFile()) return;
             state = State.Walking;
             calculateBuildingPath(startCornerSide.get(), true);
             checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
@@ -1161,14 +1137,32 @@ public class CarpetPrinter extends Module {
         return null;
     }
 
-    private File getNextMapFile() {
+    private boolean prepareNextMapFile() {
+        mapFile = Utils.getNextMapFile(mapFolder, startedFiles);
+
         for (File file : mapFolder.listFiles()) {
-            if (!startedFiles.contains(file) && file.isFile() && file.getName().toLowerCase().endsWith(".nbt")) {
+            if (!startedFiles.contains(file) && file.isFile()) {
                 startedFiles.add(file);
-                return file;
+                mapFile = file;
+                break;
             }
         }
-        return null;
+        if (mapFile == null) {
+            if (disableOnFinished.get()) {
+                info("All nbt files finished");
+                toggle();
+                return false;
+            } else {
+                return false;
+            }
+        }
+        if (!loadNBTFile()) {
+            warning("Failed to read nbt file.");
+            toggle();
+            return false;
+        }
+
+        return true;
     }
 
     private boolean loadNBTFile() {

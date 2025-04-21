@@ -179,12 +179,12 @@ public class StaircasedPrinter extends Module {
         .build()
     );
 
-    /*private final Setting<Boolean> disableOnFinished = sgGeneral.add(new BoolSetting.Builder()
+    private final Setting<Boolean> disableOnFinished = sgGeneral.add(new BoolSetting.Builder()
         .name("disable-on-finished")
         .description("Disables the printer when all nbt files are finished.")
         .defaultValue(true)
         .build()
-    );*/
+    );
 
     private final Setting<Boolean> displayMaxRequirements = sgGeneral.add(new BoolSetting.Builder()
         .name("print-max-requirements")
@@ -1142,6 +1142,8 @@ public class StaircasedPrinter extends Module {
     }
 
     private boolean prepareNextMapFile() {
+        mapFile = Utils.getNextMapFile(mapFolder, startedFiles);
+
         for (File file : mapFolder.listFiles()) {
             if (!startedFiles.contains(file) && file.isFile()) {
                 startedFiles.add(file);
@@ -1150,23 +1152,27 @@ public class StaircasedPrinter extends Module {
             }
         }
         if (mapFile == null) {
-            warning("No nbt files found in map-printer folder.");
-            toggle();
-            return false;
+            if (disableOnFinished.get()) {
+                info("All nbt files finished");
+                toggle();
+                return false;
+            } else {
+                return false;
+            }
         }
-
-        if (!loadNBTFile(mapFile)) {
+        if (!loadNBTFile()) {
             warning("Failed to read nbt file.");
             toggle();
             return false;
         }
+
         return true;
     }
 
-    private boolean loadNBTFile(File file) {
+    private boolean loadNBTFile() {
         try {
             NbtSizeTracker sizeTracker = new NbtSizeTracker(0x20000000L, 100);
-            NbtCompound nbt = NbtIo.readCompressed(file.toPath(), sizeTracker);
+            NbtCompound nbt = NbtIo.readCompressed(mapFile.toPath(), sizeTracker);
             //Extracting the palette
             NbtList paletteList = (NbtList) nbt.get("palette");
             blockPaletteDict = Utils.getBlockPalette(paletteList);
@@ -1178,7 +1184,7 @@ public class StaircasedPrinter extends Module {
             for (int x = 0; x < map.length; x++) {
                 for (int z = 0; z < map[x].length; z++) {
                     if (map[x][z] == null) {
-                        warning("No 128x129 (extra line on north side) map present in file: " + file.getName());
+                        warning("No 128x129 (extra line on north side) map present in file: " + mapFile.getName());
                         return false;
                     }
                 }
