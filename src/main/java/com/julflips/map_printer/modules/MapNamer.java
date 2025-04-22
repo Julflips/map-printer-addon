@@ -134,14 +134,14 @@ public class MapNamer extends Module {
         if (!(event.packet instanceof InventoryS2CPacket packet)) return;
 
         if (startX.get() > endX.get() || startY.get() > endY.get()) {
-            warning("Start index is larger than end index");
+            warning("Start index is larger than end index.");
             return;
         }
         mapSlots.clear();
         for (int slot = 0; slot < mc.player.getInventory().size(); slot++) {
             ItemStack itemStack = mc.player.getInventory().getStack(slot);
             if (itemStack.getItem() == Items.FILLED_MAP) {
-                info("Map Name: " + itemStack.getName().getString());
+                // info("Map Name: " + itemStack.getName().getString());
                 if (itemStack.getName().getString().equals("Map")) {
                     int tempSlot = slot;
                     if (tempSlot < 9) {  //Stupid slot correction
@@ -164,7 +164,7 @@ public class MapNamer extends Module {
         ticks--;
         if (ticks == 0 && !mapSlots.isEmpty()) {
             if (mc.player.experienceLevel < 1) {
-                info("Not enough XP");
+                info("Not enough XP.");
                 state = State.AwaitInteract;
                 if (mc.currentScreen != null) mc.player.closeHandledScreen();
                 return;
@@ -185,22 +185,25 @@ public class MapNamer extends Module {
                 currentY++;
                 if (currentY > endY.get()) {
                     if (mapSlots.isEmpty()) {
-                        currentX = 0;
-                        currentY = 0;
+                        info("Complete map was successfully named.");
+                        startX.set(0);
+                        startY.set(0);
                     } else {
-                        info("More maps found than with endX and endY described");
-                        if (mc.currentScreen != null) mc.player.closeHandledScreen();
-                        toggle();
-                        return;
+                        info("More maps found than with endX and endY described.");
                     }
+                    if (mc.currentScreen != null) mc.player.closeHandledScreen();
+                    toggle();
+                    return;
                 }
             }
 
             if (mapSlots.isEmpty()) {
                 startX.set(currentX);
                 startY.set(currentY);
+                state = State.AwaitInteract;
+                info("All maps in inventory named. Progress (x: "+currentX+", y: "+currentY+") saved. " +
+                    "Interact with an anvil with the next batch in the inventory.");
                 if (mc.currentScreen != null) mc.player.closeHandledScreen();
-                toggle();
             } else {
                 ticks = renameDelay.get();
             }
