@@ -1,7 +1,7 @@
 package com.julflips.map_printer.modules;
 
 import com.julflips.map_printer.Addon;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import com.julflips.map_printer.mixininterfaces.IClientPlayerInteractionManager;
 import meteordevelopment.meteorclient.events.packets.PacketEvent;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.gui.utils.StarscriptTextBoxRenderer;
@@ -14,7 +14,6 @@ import meteordevelopment.orbit.EventHandler;
 import net.minecraft.block.AnvilBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.ClickSlotC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
 import net.minecraft.network.packet.c2s.play.RenameItemC2SPacket;
 import net.minecraft.network.packet.s2c.play.CloseScreenS2CPacket;
@@ -97,7 +96,6 @@ public class MapNamer extends Module {
     ArrayList<Integer> mapSlots;
     State state;
     int ticks;
-    int syncId;
     int currentX;
     int currentY;
 
@@ -153,7 +151,6 @@ public class MapNamer extends Module {
                 }
             }
         }
-        syncId = packet.getSyncId();
         ticks = renameDelay.get();
         state = State.HandleMaps;
     }
@@ -174,10 +171,11 @@ public class MapNamer extends Module {
             if (currentY == -1) currentY = startY.get();
             // info("Process map: " + slot + " with x: " + startX.get() + ", y: " + startY.get());
 
-            mc.getNetworkHandler().sendPacket((new ClickSlotC2SPacket(syncId, 1, slot, 1, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap())));
+            IClientPlayerInteractionManager cim = (IClientPlayerInteractionManager) mc.interactionManager;
+            cim.clickSlot(mc.player.currentScreenHandler.syncId, slot, 1, SlotActionType.QUICK_MOVE, mc.player);
             String newMapName = mapName.get() + currentY + separator + currentX;
             mc.getNetworkHandler().sendPacket(new RenameItemC2SPacket(newMapName));
-            mc.getNetworkHandler().sendPacket((new ClickSlotC2SPacket(syncId, 2, 2, 1, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap())));
+            cim.clickSlot(mc.player.currentScreenHandler.syncId, 2, 1, SlotActionType.QUICK_MOVE, mc.player);
 
             currentX++;
             if (currentX > endX.get()) {
