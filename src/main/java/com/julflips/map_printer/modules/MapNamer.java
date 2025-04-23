@@ -5,10 +5,7 @@ import com.julflips.map_printer.mixininterfaces.IClientPlayerInteractionManager;
 import meteordevelopment.meteorclient.events.packets.PacketEvent;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.gui.utils.StarscriptTextBoxRenderer;
-import meteordevelopment.meteorclient.settings.IntSetting;
-import meteordevelopment.meteorclient.settings.Setting;
-import meteordevelopment.meteorclient.settings.SettingGroup;
-import meteordevelopment.meteorclient.settings.StringSetting;
+import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.block.AnvilBlock;
@@ -89,6 +86,13 @@ public class MapNamer extends Module {
         .build()
     );
 
+    private final Setting<Order> order = sgGeneral.add(new EnumSetting.Builder<Order>()
+        .name("order")
+        .description("The order in which the maps are named. Slot = Hotbar+Inventory left to right.")
+        .defaultValue(Order.Slot)
+        .build()
+    );
+
     public MapNamer() {
         super(Addon.CATEGORY, "map-namer", "Automatically names maps in the inventory using the format: Map-name + Y + Separator + X.");
     }
@@ -137,17 +141,20 @@ public class MapNamer extends Module {
         }
         mapSlots.clear();
         for (int slot = 0; slot < mc.player.getInventory().size(); slot++) {
-            ItemStack itemStack = mc.player.getInventory().getStack(slot);
+            int adjustedSlot = slot;
+            if (order.get() == Order.ReversedSlot) {
+                adjustedSlot = mc.player.getInventory().size() - slot - 1;
+            }
+            ItemStack itemStack = mc.player.getInventory().getStack(adjustedSlot);
             if (itemStack.getItem() == Items.FILLED_MAP) {
                 // info("Map Name: " + itemStack.getName().getString());
                 if (itemStack.getName().getString().equals("Map")) {
-                    int tempSlot = slot;
-                    if (tempSlot < 9) {  //Stupid slot correction
-                        tempSlot += 30;
+                    if (adjustedSlot < 9) {  //Stupid slot correction
+                        adjustedSlot += 30;
                     } else {
-                        tempSlot -= 6;
+                        adjustedSlot -= 6;
                     }
-                    mapSlots.add(tempSlot);
+                    mapSlots.add(adjustedSlot);
                 }
             }
         }
@@ -212,5 +219,12 @@ public class MapNamer extends Module {
         AwaitInteract,
         AwaitScreen,
         HandleMaps
+    }
+
+    private enum Order {
+        Slot,
+        ReversedSlot
+        //MapID,
+        //ReversedMapID
     }
 }
