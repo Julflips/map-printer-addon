@@ -395,7 +395,9 @@ public class Utils {
     public static File getNextMapFile(File mapFolder, ArrayList<File> startedFiles) {
         File[] files = mapFolder.listFiles();
         if (files == null) return null;
-        Arrays.sort(files, Comparator.comparing(File::getName));
+        Arrays.sort(files, Comparator
+            .comparingInt((File f) -> f.getName().length()) // sort by name length
+            .thenComparing(File::getName));                // then sort alphabetically
 
         for (File file : files) {
             if (!startedFiles.contains(file) && file.isFile() && file.getName().toLowerCase().endsWith(".nbt")) {
