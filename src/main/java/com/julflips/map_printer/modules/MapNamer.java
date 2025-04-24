@@ -1,20 +1,16 @@
 package com.julflips.map_printer.modules;
 
 import com.julflips.map_printer.Addon;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import com.julflips.map_printer.mixininterfaces.IClientPlayerInteractionManager;
 import meteordevelopment.meteorclient.events.packets.PacketEvent;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.gui.utils.StarscriptTextBoxRenderer;
-import meteordevelopment.meteorclient.settings.IntSetting;
-import meteordevelopment.meteorclient.settings.Setting;
-import meteordevelopment.meteorclient.settings.SettingGroup;
-import meteordevelopment.meteorclient.settings.StringSetting;
+import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.block.AnvilBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.ClickSlotC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
 import net.minecraft.network.packet.c2s.play.RenameItemC2SPacket;
 import net.minecraft.network.packet.s2c.play.CloseScreenS2CPacket;
@@ -90,6 +86,13 @@ public class MapNamer extends Module {
         .build()
     );
 
+    private final Setting<Order> order = sgGeneral.add(new EnumSetting.Builder<Order>()
+        .name("order")
+        .description("The order in which the maps are named. Slot = Hotbar+Inventory left to right.")
+        .defaultValue(Order.Slot)
+        .build()
+    );
+
     public MapNamer() {
         super(Addon.CATEGORY, "map-namer", "Automatically names maps in the inventory using the format: Map-name + Y + Separator + X.");
     }
@@ -97,7 +100,6 @@ public class MapNamer extends Module {
     ArrayList<Integer> mapSlots;
     State state;
     int ticks;
-    int syncId;
     int currentX;
     int currentY;
 
@@ -139,21 +141,23 @@ public class MapNamer extends Module {
         }
         mapSlots.clear();
         for (int slot = 0; slot < mc.player.getInventory().size(); slot++) {
-            ItemStack itemStack = mc.player.getInventory().getStack(slot);
+            int adjustedSlot = slot;
+            if (order.get() == Order.ReversedSlot) {
+                adjustedSlot = mc.player.getInventory().size() - slot - 1;
+            }
+            ItemStack itemStack = mc.player.getInventory().getStack(adjustedSlot);
             if (itemStack.getItem() == Items.FILLED_MAP) {
                 // info("Map Name: " + itemStack.getName().getString());
                 if (itemStack.getName().getString().equals("Map")) {
-                    int tempSlot = slot;
-                    if (tempSlot < 9) {  //Stupid slot correction
-                        tempSlot += 30;
+                    if (adjustedSlot < 9) {  //Stupid slot correction
+                        adjustedSlot += 30;
                     } else {
-                        tempSlot -= 6;
+                        adjustedSlot -= 6;
                     }
-                    mapSlots.add(tempSlot);
+                    mapSlots.add(adjustedSlot);
                 }
             }
         }
-        syncId = packet.getSyncId();
         ticks = renameDelay.get();
         state = State.HandleMaps;
     }
@@ -174,10 +178,11 @@ public class MapNamer extends Module {
             if (currentY == -1) currentY = startY.get();
             // info("Process map: " + slot + " with x: " + startX.get() + ", y: " + startY.get());
 
-            mc.getNetworkHandler().sendPacket((new ClickSlotC2SPacket(syncId, 1, slot, 1, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap())));
+            IClientPlayerInteractionManager cim = (IClientPlayerInteractionManager) mc.interactionManager;
+            cim.clickSlot(mc.player.currentScreenHandler.syncId, slot, 1, SlotActionType.QUICK_MOVE, mc.player);
             String newMapName = mapName.get() + currentY + separator + currentX;
             mc.getNetworkHandler().sendPacket(new RenameItemC2SPacket(newMapName));
-            mc.getNetworkHandler().sendPacket((new ClickSlotC2SPacket(syncId, 2, 2, 1, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap())));
+            cim.clickSlot(mc.player.currentScreenHandler.syncId, 2, 1, SlotActionType.QUICK_MOVE, mc.player);
 
             currentX++;
             if (currentX > endX.get()) {
@@ -214,5 +219,12 @@ public class MapNamer extends Module {
         AwaitInteract,
         AwaitScreen,
         HandleMaps
+    }
+
+    private enum Order {
+        Slot,
+        ReversedSlot
+        //MapID,
+        //ReversedMapID
     }
 }
