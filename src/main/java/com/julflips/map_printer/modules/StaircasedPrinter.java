@@ -10,6 +10,7 @@ import meteordevelopment.meteorclient.gui.utils.StarscriptTextBoxRenderer;
 import meteordevelopment.meteorclient.renderer.ShapeMode;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
+import meteordevelopment.meteorclient.utils.misc.Keybind;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.player.PlayerUtils;
 import meteordevelopment.meteorclient.utils.player.Rotations;
@@ -200,6 +201,16 @@ public class StaircasedPrinter extends Module {
         .build()
     );
 
+    private final Setting<Keybind> pause = sgGeneral.add(new KeybindSetting.Builder()
+        .name("pause hotkey")
+        .description("Pauses the printing process.")
+        .defaultValue(Keybind.none())
+        .action(() -> {
+            togglePause();
+        })
+        .build()
+    );
+
     //Error Handling
 
     private final Setting<Boolean> logErrors = sgError.add(new BoolSetting.Builder()
@@ -293,6 +304,7 @@ public class StaircasedPrinter extends Module {
     boolean closeNextInvPacket;
     boolean atEdge;
     boolean originalAutoJumpState;
+    boolean isPaused = false;
     State state;
     State oldState;
     Pair<BlockHitResult, Vec3d> pickaxeChest;
@@ -392,8 +404,15 @@ public class StaircasedPrinter extends Module {
         info("Select the §aMap Building Area (128x128). (Right-click the edge from the inside)");
     }
 
+    private void togglePause() {
+        info("Printer paused.");
+        isPaused = true;
+        toggle();
+    }
+
     @Override
     public void onDeactivate() {
+        Utils.setWPressed(false);
         mc.options.getAutoJump().setValue(originalAutoJumpState);
     }
 

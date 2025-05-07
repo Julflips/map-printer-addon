@@ -5,6 +5,7 @@ import com.julflips.map_printer.utils.Utils;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.gui.utils.StarscriptTextBoxRenderer;
 import meteordevelopment.meteorclient.systems.modules.Module;
+import meteordevelopment.meteorclient.utils.misc.Keybind;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.orbit.EventHandler;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
@@ -163,13 +164,6 @@ public class CarpetPrinter extends Module {
         .build()
     );
 
-    private final Setting<Boolean> activationReset = sgGeneral.add(new BoolSetting.Builder()
-        .name("activation-reset")
-        .description("Resets all values when module is activated or the client relogs. Disable to be able to pause.")
-        .defaultValue(true)
-        .build()
-    );
-
     private final Setting<SprintMode> sprinting = sgGeneral.add(new EnumSetting.Builder<SprintMode>()
         .name("sprint-mode")
         .description("How to sprint.")
@@ -221,6 +215,16 @@ public class CarpetPrinter extends Module {
         .name("debug-prints")
         .description("Prints additional information.")
         .defaultValue(false)
+        .build()
+    );
+
+    private final Setting<Keybind> pause = sgGeneral.add(new KeybindSetting.Builder()
+        .name("pause hotkey")
+        .description("Pauses the printing process.")
+        .defaultValue(Keybind.none())
+        .action(() -> {
+            togglePause();
+        })
         .build()
     );
 
@@ -309,6 +313,7 @@ public class CarpetPrinter extends Module {
     long lastTickTime;
     boolean pressedReset;
     boolean closeNextInvPacket;
+    boolean isPaused = false;
     State state;
     Pair<BlockHitResult, Vec3d> reset;
     Pair<BlockHitResult, Vec3d> cartographyTable;
@@ -339,7 +344,8 @@ public class CarpetPrinter extends Module {
     @Override
     public void onActivate() {
         lastTickTime = System.currentTimeMillis();
-        if (!activationReset.get() && checkpoints != null) {
+        if (isPaused && checkpoints != null) {
+            isPaused = false;
             return;
         }
         materialDict = new HashMap<>();
@@ -380,6 +386,17 @@ public class CarpetPrinter extends Module {
         if (!prepareNextMapFile()) return;
         state = State.SelectingMapArea;
         info("Select the §aMap Building Area (128x128)");
+    }
+
+    @Override
+    public void onDeactivate() {
+        Utils.setWPressed(false);
+    }
+
+    private void togglePause() {
+        info("Printer paused.");
+        isPaused = true;
+        toggle();
     }
 
     private void refillInventory(HashMap<Block, Integer> invMaterial) {
