@@ -1177,26 +1177,13 @@ public class FullBlockPrinter extends Module {
         return new Pair(bestChestPos, bestPos);
     }
 
-    private Direction getInteractionSide(BlockPos blockPos) {
-        double minDistance = Double.MAX_VALUE;
-        Direction bestSide = Direction.UP;
-        for (Direction side : Direction.values()) {
-            double neighbourDistance = mc.player.getEyePos().distanceTo(blockPos.offset(side).toCenterPos());
-            if (neighbourDistance < minDistance) {
-                minDistance = neighbourDistance;
-                bestSide = side;
-            }
-        }
-        return bestSide;
-    }
-
     private void interactWithBlock(BlockPos chestPos) {
         Utils.setWPressed(false);
         mc.player.setVelocity(0,0,0);
         mc.player.setYaw((float) Rotations.getYaw(chestPos.toCenterPos()));
         mc.player.setPitch((float) Rotations.getPitch(chestPos.toCenterPos()));
 
-        BlockHitResult hitResult = new BlockHitResult(chestPos.toCenterPos(), getInteractionSide(chestPos), chestPos, false);
+        BlockHitResult hitResult = new BlockHitResult(chestPos.toCenterPos(), Utils.getInteractionSide(chestPos), chestPos, false);
         BlockUtils.interact(hitResult, Hand.MAIN_HAND, true);
         //Set timeout for chest interaction
         interactTimeout = retryInteractTimer.get();

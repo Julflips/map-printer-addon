@@ -1095,7 +1095,8 @@ public class CarpetPrinter extends Module {
         mc.player.setVelocity(0,0,0);
         mc.player.setYaw((float) Rotations.getYaw(chestPos.toCenterPos()));
         mc.player.setPitch((float) Rotations.getPitch(chestPos.toCenterPos()));
-        BlockHitResult hitResult = new BlockHitResult(chestPos.toCenterPos(), Direction.UP, chestPos, false);
+
+        BlockHitResult hitResult = new BlockHitResult(chestPos.toCenterPos(), Utils.getInteractionSide(chestPos), chestPos, false);
         BlockUtils.interact(hitResult, Hand.MAIN_HAND, true);
         //Set timeout for chest interaction
         interactTimeout = retryInteractTimer.get();
