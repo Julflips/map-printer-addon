@@ -177,6 +177,13 @@ public class CarpetPrinter extends Module {
         .build()
     );
 
+    private final Setting<Boolean> rotate = sgGeneral.add(new BoolSetting.Builder()
+        .name("rotate")
+        .description("Rotate when placing a block.")
+        .defaultValue(true)
+        .build()
+    );
+
     private final Setting<Double> checkpointBuffer = sgGeneral.add(new DoubleSetting.Builder()
         .name("checkpoint-buffer")
         .description("The buffer area of the checkpoints. Larger means less precise walking, but might be desired at higher speeds.")
@@ -790,7 +797,7 @@ public class CarpetPrinter extends Module {
                 state = State.Walking;
                 if (checkpoints.isEmpty()) calculateBuildingPath(false, true);
             } else {
-                Rotations.rotate(Rotations.getYaw(repairingPos), Rotations.getPitch(repairingPos), 50);
+                if (rotate.get()) Rotations.rotate(Rotations.getYaw(repairingPos), Rotations.getPitch(repairingPos), 50);
                 BlockUtils.breakBlock(repairingPos, true);
                 return;
             }
@@ -921,7 +928,7 @@ public class CarpetPrinter extends Module {
                     repairingPos = checkpointAction.getRight();
                     Utils.setWPressed(false);
                     mc.player.setVelocity(0,0,0);
-                    Rotations.rotate(Rotations.getYaw(repairingPos), Rotations.getPitch(repairingPos), 50);
+                    if (rotate.get()) Rotations.rotate(Rotations.getYaw(repairingPos), Rotations.getPitch(repairingPos), 50);
                     BlockUtils.breakBlock(repairingPos, true);
                     return;
             }
@@ -1017,7 +1024,7 @@ public class CarpetPrinter extends Module {
             if (mc.player.getInventory().getStack(slot).isEmpty()) continue;
             Block foundMaterial = Registries.BLOCK.get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (foundMaterial.equals(material)) {
-                BlockUtils.place(pos, Hand.MAIN_HAND, slot, true,50, true, true, false);
+                BlockUtils.place(pos, Hand.MAIN_HAND, slot, rotate.get(),50, true, true, false);
                 if (material == lastSwappedMaterial) lastSwappedMaterial = null;
                 return true;
             }

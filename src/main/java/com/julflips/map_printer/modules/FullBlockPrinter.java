@@ -188,6 +188,13 @@ public class FullBlockPrinter extends Module {
         .build()
     );
 
+    private final Setting<Boolean> rotate = sgGeneral.add(new BoolSetting.Builder()
+        .name("rotate")
+        .description("Rotate when placing a block.")
+        .defaultValue(true)
+        .build()
+    );
+
     private final Setting<Boolean> moveToFinishedFolder = sgGeneral.add(new BoolSetting.Builder()
         .name("move-to-finished-folder")
         .description("Moves finished NBT files into the finished-maps folder in the map-printer folder.")
@@ -1101,7 +1108,7 @@ public class FullBlockPrinter extends Module {
             if (mc.player.getInventory().getStack(slot).isEmpty()) continue;
             Block foundMaterial = Registries.BLOCK.get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (foundMaterial.equals(material)) {
-                BlockUtils.place(pos, Hand.MAIN_HAND, slot, true,50, true, true, false);
+                BlockUtils.place(pos, Hand.MAIN_HAND, slot, rotate.get(),50, true, true, false);
                 if (material == lastSwappedMaterial) lastSwappedMaterial = null;
                 return true;
             }
