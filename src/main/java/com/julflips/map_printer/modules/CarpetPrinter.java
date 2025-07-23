@@ -30,7 +30,6 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.Pair;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 import org.apache.commons.lang3.tuple.Triple;
 
@@ -180,6 +179,13 @@ public class CarpetPrinter extends Module {
     private final Setting<Boolean> rotate = sgGeneral.add(new BoolSetting.Builder()
         .name("rotate")
         .description("Rotate when placing a block.")
+        .defaultValue(true)
+        .build()
+    );
+
+    private final Setting<Boolean> breakCarpetAboveReset = sgGeneral.add(new BoolSetting.Builder()
+        .name("break-carpet-above-reset")
+        .description("Break the carpet above the reset chest before activating. Useful when interactions trough blocks are not allowed.")
         .defaultValue(true)
         .build()
     );
@@ -709,6 +715,9 @@ public class CarpetPrinter extends Module {
                         break;
                     }
                 }
+                if (breakCarpetAboveReset.get()) {
+                    checkpoints.add(new Pair(reset.getRight(), new Pair("repair", reset.getLeft().getBlockPos().up())));
+                }
                 checkpoints.add(new Pair(reset.getRight(), new Pair("reset", null)));
                 state = State.Walking;
                 break;
@@ -872,8 +881,10 @@ public class CarpetPrinter extends Module {
                     if (!invalidPlacements.isEmpty() && errorAction.get() == ErrorAction.Reset) {
                         warning("ErrorAction is Reset: Resetting map because of an error...");
                         checkpoints.clear();
-                        checkpoints.add(0, new Pair(reset.getRight(), new Pair("reset", null)));
-                        checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
+                        if (breakCarpetAboveReset.get()) {
+                            checkpoints.add(new Pair(reset.getRight(), new Pair("repair", reset.getLeft().getBlockPos().up())));
+                        }
+                        checkpoints.add(new Pair(reset.getRight(), new Pair("reset", null)));
                         startedFiles.remove(mapFile);
                     }
                     break;
