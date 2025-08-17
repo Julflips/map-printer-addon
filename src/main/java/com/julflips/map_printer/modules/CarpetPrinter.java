@@ -30,7 +30,6 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.Pair;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 import org.apache.commons.lang3.tuple.Triple;
 
@@ -174,6 +173,20 @@ public class CarpetPrinter extends Module {
         .name("sprint-mode")
         .description("How to sprint.")
         .defaultValue(SprintMode.NotPlacing)
+        .build()
+    );
+
+    private final Setting<Boolean> rotate = sgGeneral.add(new BoolSetting.Builder()
+        .name("rotate")
+        .description("Rotate when placing a block.")
+        .defaultValue(true)
+        .build()
+    );
+
+    private final Setting<Boolean> breakCarpetAboveReset = sgGeneral.add(new BoolSetting.Builder()
+        .name("break-carpet-above-reset")
+        .description("Break the carpet above the reset chest before activating. Useful when interactions trough blocks are not allowed.")
+        .defaultValue(true)
         .build()
     );
 
@@ -702,6 +715,9 @@ public class CarpetPrinter extends Module {
                         break;
                     }
                 }
+                if (breakCarpetAboveReset.get()) {
+                    checkpoints.add(new Pair(reset.getRight(), new Pair("repair", reset.getLeft().getBlockPos().up())));
+                }
                 checkpoints.add(new Pair(reset.getRight(), new Pair("reset", null)));
                 state = State.Walking;
                 break;
@@ -790,7 +806,7 @@ public class CarpetPrinter extends Module {
                 state = State.Walking;
                 if (checkpoints.isEmpty()) calculateBuildingPath(false, true);
             } else {
-                Rotations.rotate(Rotations.getYaw(repairingPos), Rotations.getPitch(repairingPos), 50);
+                if (rotate.get()) Rotations.rotate(Rotations.getYaw(repairingPos), Rotations.getPitch(repairingPos), 50);
                 BlockUtils.breakBlock(repairingPos, true);
                 return;
             }
@@ -865,8 +881,10 @@ public class CarpetPrinter extends Module {
                     if (!invalidPlacements.isEmpty() && errorAction.get() == ErrorAction.Reset) {
                         warning("ErrorAction is Reset: Resetting map because of an error...");
                         checkpoints.clear();
-                        checkpoints.add(0, new Pair(reset.getRight(), new Pair("reset", null)));
-                        checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
+                        if (breakCarpetAboveReset.get()) {
+                            checkpoints.add(new Pair(reset.getRight(), new Pair("repair", reset.getLeft().getBlockPos().up())));
+                        }
+                        checkpoints.add(new Pair(reset.getRight(), new Pair("reset", null)));
                         startedFiles.remove(mapFile);
                     }
                     break;
@@ -921,7 +939,7 @@ public class CarpetPrinter extends Module {
                     repairingPos = checkpointAction.getRight();
                     Utils.setWPressed(false);
                     mc.player.setVelocity(0,0,0);
-                    Rotations.rotate(Rotations.getYaw(repairingPos), Rotations.getPitch(repairingPos), 50);
+                    if (rotate.get()) Rotations.rotate(Rotations.getYaw(repairingPos), Rotations.getPitch(repairingPos), 50);
                     BlockUtils.breakBlock(repairingPos, true);
                     return;
             }
@@ -1017,7 +1035,7 @@ public class CarpetPrinter extends Module {
             if (mc.player.getInventory().getStack(slot).isEmpty()) continue;
             Block foundMaterial = Registries.BLOCK.get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (foundMaterial.equals(material)) {
-                BlockUtils.place(pos, Hand.MAIN_HAND, slot, true,50, true, true, false);
+                BlockUtils.place(pos, Hand.MAIN_HAND, slot, rotate.get(),50, true, true, false);
                 if (material == lastSwappedMaterial) lastSwappedMaterial = null;
                 return true;
             }
@@ -1095,7 +1113,8 @@ public class CarpetPrinter extends Module {
         mc.player.setVelocity(0,0,0);
         mc.player.setYaw((float) Rotations.getYaw(chestPos.toCenterPos()));
         mc.player.setPitch((float) Rotations.getPitch(chestPos.toCenterPos()));
-        BlockHitResult hitResult = new BlockHitResult(chestPos.toCenterPos(), Direction.UP, chestPos, false);
+
+        BlockHitResult hitResult = new BlockHitResult(chestPos.toCenterPos(), Utils.getInteractionSide(chestPos), chestPos, false);
         BlockUtils.interact(hitResult, Hand.MAIN_HAND, true);
         //Set timeout for chest interaction
         interactTimeout = retryInteractTimer.get();

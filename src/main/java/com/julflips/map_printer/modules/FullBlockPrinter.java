@@ -188,6 +188,13 @@ public class FullBlockPrinter extends Module {
         .build()
     );
 
+    private final Setting<Boolean> rotate = sgGeneral.add(new BoolSetting.Builder()
+        .name("rotate")
+        .description("Rotate when placing a block.")
+        .defaultValue(true)
+        .build()
+    );
+
     private final Setting<Boolean> moveToFinishedFolder = sgGeneral.add(new BoolSetting.Builder()
         .name("move-to-finished-folder")
         .description("Moves finished NBT files into the finished-maps folder in the map-printer folder.")
@@ -1101,7 +1108,7 @@ public class FullBlockPrinter extends Module {
             if (mc.player.getInventory().getStack(slot).isEmpty()) continue;
             Block foundMaterial = Registries.BLOCK.get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (foundMaterial.equals(material)) {
-                BlockUtils.place(pos, Hand.MAIN_HAND, slot, true,50, true, true, false);
+                BlockUtils.place(pos, Hand.MAIN_HAND, slot, rotate.get(),50, true, true, false);
                 if (material == lastSwappedMaterial) lastSwappedMaterial = null;
                 return true;
             }
@@ -1177,26 +1184,13 @@ public class FullBlockPrinter extends Module {
         return new Pair(bestChestPos, bestPos);
     }
 
-    private Direction getInteractionSide(BlockPos blockPos) {
-        double minDistance = Double.MAX_VALUE;
-        Direction bestSide = Direction.UP;
-        for (Direction side : Direction.values()) {
-            double neighbourDistance = mc.player.getEyePos().distanceTo(blockPos.offset(side).toCenterPos());
-            if (neighbourDistance < minDistance) {
-                minDistance = neighbourDistance;
-                bestSide = side;
-            }
-        }
-        return bestSide;
-    }
-
     private void interactWithBlock(BlockPos chestPos) {
         Utils.setWPressed(false);
         mc.player.setVelocity(0,0,0);
         mc.player.setYaw((float) Rotations.getYaw(chestPos.toCenterPos()));
         mc.player.setPitch((float) Rotations.getPitch(chestPos.toCenterPos()));
 
-        BlockHitResult hitResult = new BlockHitResult(chestPos.toCenterPos(), getInteractionSide(chestPos), chestPos, false);
+        BlockHitResult hitResult = new BlockHitResult(chestPos.toCenterPos(), Utils.getInteractionSide(chestPos), chestPos, false);
         BlockUtils.interact(hitResult, Hand.MAIN_HAND, true);
         //Set timeout for chest interaction
         interactTimeout = retryInteractTimer.get();

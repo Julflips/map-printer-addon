@@ -24,6 +24,7 @@ import com.julflips.map_printer.mixininterfaces.IClientPlayerInteractionManager;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Pair;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 
 import java.io.File;
@@ -406,5 +407,18 @@ public class Utils {
             }
         }
         return null;
+    }
+
+    public static Direction getInteractionSide(BlockPos blockPos) {
+        double minDistance = Double.MAX_VALUE;
+        Direction bestSide = Direction.UP;
+        for (Direction side : Direction.values()) {
+            double neighbourDistance = mc.player.getEyePos().distanceTo(blockPos.offset(side).toCenterPos());
+            if (neighbourDistance < minDistance) {
+                minDistance = neighbourDistance;
+                bestSide = side;
+            }
+        }
+        return bestSide;
     }
 }
