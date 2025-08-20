@@ -341,7 +341,6 @@ public class CarpetPrinter extends Module {
     ArrayList<Triple<Block, Integer, Integer>> restockList;        //Material, Stacks, Raw Amount
     ArrayList<BlockPos> checkedChests;
     ArrayList<Pair<Vec3d, Pair<String, BlockPos>>> checkpoints;    //(GoalPos, (checkpointAction, targetBlock))
-    Vec3d restockEntryPos;
     ArrayList<File> startedFiles;
     ArrayList<ClickSlotC2SPacket> invActionPackets;
     ArrayList<BlockPos> previousInvalidPlacements;
@@ -366,7 +365,6 @@ public class CarpetPrinter extends Module {
         previousInvalidPlacements = new ArrayList<>();
         reset = null;
         mapCorner = null;
-        restockEntryPos = null;
         lastInteractedChest = null;
         repairingPos = null;
         cartographyTable = null;
@@ -530,7 +528,6 @@ public class CarpetPrinter extends Module {
                         return;
                     }
                     Utils.setWPressed(true);
-                    restockEntryPos = Utils.getRestockEntryPos(mapCorner.toCenterPos(), materialDict);
                     calculateBuildingPath(startCornerSide.get(), true);
                     availableSlots = Utils.getAvailableSlots(materialDict);
                     for (int slot : availableSlots) {
@@ -543,13 +540,10 @@ public class CarpetPrinter extends Module {
                     HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(), availableSlots.size(), map);
                     Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(requiredItems, availableSlots);
                     if (invInformation.getLeft().size() != 0) {
-                        checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
                         checkpoints.add(0, new Pair(dumpStation.getLeft(), new Pair("dump", null)));
-                        checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
                     } else {
                         refillInventory(invInformation.getRight());
                     }
-                    checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
                     if (availableHotBarSlots.size() == 0) {
                         warning("No free slots found in hot-bar!");
                         toggle();
@@ -835,9 +829,7 @@ public class CarpetPrinter extends Module {
             if (!prepareNextMapFile()) return;
             state = State.Walking;
             calculateBuildingPath(startCornerSide.get(), true);
-            checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
             checkpoints.add(0, new Pair(dumpStation.getLeft(), new Pair("dump", null)));
-            checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
         }
 
         if (toBeHandledInvPacket != null) {
@@ -969,7 +961,6 @@ public class CarpetPrinter extends Module {
                 if (bestChest == null) return;
                 checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest.getLeft())));
                 checkpoints.add(0, new Pair(dumpStation.getLeft(), new Pair("dump", null)));
-                checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
                 try {
                     if (moveToFinishedFolder.get()) mapFile.renameTo(new File(mapFile.getParentFile().getAbsolutePath()+File.separator+"_finished_maps"+File.separator+mapFile.getName()));
                 } catch (Exception e) {
@@ -1056,9 +1047,7 @@ public class CarpetPrinter extends Module {
         if (lastSwappedMaterial == material) return false;      //Wait for swapped material
         info("No "+ material.getName().getString() + " found in inventory. Resetting...");
         checkpoints.add(0, new Pair(mc.player.getPos(), new Pair("sprint", null)));
-        checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
         checkpoints.add(0, new Pair(dumpStation.getLeft(), new Pair("dump", null)));
-        checkpoints.add(0, new Pair(restockEntryPos, new Pair("walkRestock", null)));
         return false;
     }
 
@@ -1258,9 +1247,6 @@ public class CarpetPrinter extends Module {
             if (finishedMapChest != null) {
                 event.renderer.box(finishedMapChest.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines, 0);
                 event.renderer.box(finishedMapChest.getRight().x-indicatorSize.get(), finishedMapChest.getRight().y-indicatorSize.get(), finishedMapChest.getRight().z-indicatorSize.get(), finishedMapChest.getRight().getX()+indicatorSize.get(), finishedMapChest.getRight().getY()+indicatorSize.get(), finishedMapChest.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
-            }
-            if (restockEntryPos != null) {
-                event.renderer.box(restockEntryPos.x-indicatorSize.get(), restockEntryPos.y-indicatorSize.get(), restockEntryPos.z-indicatorSize.get(), restockEntryPos.x+indicatorSize.get(), restockEntryPos.y+indicatorSize.get(), restockEntryPos.z+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
         }
     }
