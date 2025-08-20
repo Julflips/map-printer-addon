@@ -21,7 +21,7 @@
     "map-printer.mixins.json"
   ],
   "custom": {
-    "meteor-client:color": "225,25,25"
+    "meteor-client:color": "20,255,210"
   },
   "depends": {
     "java": ">=17",
