@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "map-printer",
+  "id": "nerv-printer",
   "version": "${version}",
-  "name": "Map Printer",
+  "name": "Nerv Printer",
   "description": "Automatically builds 2D maps from nbt files.",
   "authors": [
     "Julflips"
@@ -14,11 +14,11 @@
   "environment": "client",
   "entrypoints": {
     "meteor": [
-      "com.julflips.map_printer.Addon"
+      "com.julflips.nerv_printer.Addon"
     ]
   },
   "mixins": [
-    "map-printer.mixins.json"
+    "nerv_printer.mixins.json"
   ],
   "custom": {
     "meteor-client:color": "20,255,210"

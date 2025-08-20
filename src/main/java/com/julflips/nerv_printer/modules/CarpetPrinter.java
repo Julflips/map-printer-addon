@@ -1,7 +1,7 @@
-package com.julflips.map_printer.modules;
+package com.julflips.nerv_printer.modules;
 
-import com.julflips.map_printer.Addon;
-import com.julflips.map_printer.utils.Utils;
+import com.julflips.nerv_printer.Addon;
+import com.julflips.nerv_printer.utils.Utils;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.gui.utils.StarscriptTextBoxRenderer;
 import meteordevelopment.meteorclient.systems.modules.Module;
@@ -201,7 +201,7 @@ public class CarpetPrinter extends Module {
 
     private final Setting<Boolean> moveToFinishedFolder = sgGeneral.add(new BoolSetting.Builder()
         .name("move-to-finished-folder")
-        .description("Moves finished NBT files into the finished-maps folder in the map-printer folder.")
+        .description("Moves finished NBT files into the finished-maps folder in the nerv-printer folder.")
         .defaultValue(true)
         .build()
     );
@@ -214,9 +214,9 @@ public class CarpetPrinter extends Module {
     );
 
     public final Setting<String> mapPrinterFolderPath = sgGeneral.add(new StringSetting.Builder()
-        .name("map-printer-folder-path")
-        .description("The path to your map-printer directory.")
-        .defaultValue("C:\\Users\\(username)\\AppData\\Roaming\\.minecraft\\map-printer")
+        .name("nerv-printer-folder-path")
+        .description("The path to your nerv-printer directory.")
+        .defaultValue("C:\\Users\\(username)\\AppData\\Roaming\\.minecraft\\nerv-printer")
         .wide()
         .renderer(StarscriptTextBoxRenderer.class)
         .visible(() -> !autoFolderDetection.get())
@@ -382,7 +382,7 @@ public class CarpetPrinter extends Module {
         closeResetChestTicks = 0;
 
         if (autoFolderDetection.get()) {
-            mapFolder = new File(Utils.getMinecraftDirectory() + File.separator + "map-printer");
+            mapFolder = new File(Utils.getMinecraftDirectory() + File.separator + "nerv-printer");
         } else {
             mapFolder = new File(mapPrinterFolderPath.get());
         }

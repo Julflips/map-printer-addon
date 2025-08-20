@@ -1,7 +1,7 @@
-package com.julflips.map_printer.modules;
+package com.julflips.nerv_printer.modules;
 
-import com.julflips.map_printer.Addon;
-import com.julflips.map_printer.mixininterfaces.IClientPlayerInteractionManager;
+import com.julflips.nerv_printer.Addon;
+import com.julflips.nerv_printer.mixininterfaces.IClientPlayerInteractionManager;
 import meteordevelopment.meteorclient.events.packets.PacketEvent;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.gui.utils.StarscriptTextBoxRenderer;

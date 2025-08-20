@@ -1,4 +1,4 @@
-package com.julflips.map_printer.utils;
+package com.julflips.nerv_printer.utils;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import meteordevelopment.meteorclient.events.game.GameLeftEvent;
@@ -20,7 +20,7 @@ import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
 import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.screen.slot.SlotActionType;
-import com.julflips.map_printer.mixininterfaces.IClientPlayerInteractionManager;
+import com.julflips.nerv_printer.mixininterfaces.IClientPlayerInteractionManager;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Pair;
 import net.minecraft.util.math.BlockPos;
@@ -200,16 +200,16 @@ public class Utils {
         if (!mapFolder.exists()) {
             boolean created = mapFolder.mkdir();
             if (created) {
-                ChatUtils.info("Created map-printer folder in Minecraft directory");
+                ChatUtils.info("Created nerv-printer folder in Minecraft directory");
             } else {
-                ChatUtils.warning("Failed to create map-printer folder in Minecraft directory. Try to disable autoFolderDetection and manually enter a path.");
+                ChatUtils.warning("Failed to create nerv-printer folder in Minecraft directory. Try to disable autoFolderDetection and manually enter a path.");
                 return false;
             }
         }
         if (!finishedMapFolder.exists()) {
             boolean created = finishedMapFolder.mkdir();
             if (!created) {
-                ChatUtils.warning("Failed to create Finished-NBT folder in map-printer folder");
+                ChatUtils.warning("Failed to create Finished-NBT folder in nerv-printer folder");
                 return false;
             }
         }

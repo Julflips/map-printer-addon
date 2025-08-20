@@ -1,9 +1,8 @@
-package com.julflips.map_printer;
+package com.julflips.nerv_printer;
 
-import com.julflips.map_printer.modules.CarpetPrinter;
-import com.julflips.map_printer.modules.FullBlockPrinter;
-import com.julflips.map_printer.modules.MapNamer;
-import com.julflips.map_printer.modules.StaircasedPrinter;
+import com.julflips.nerv_printer.modules.CarpetPrinter;
+import com.julflips.nerv_printer.modules.FullBlockPrinter;
+import com.julflips.nerv_printer.modules.MapNamer;
 import com.mojang.logging.LogUtils;
 import meteordevelopment.meteorclient.addons.MeteorAddon;
 import meteordevelopment.meteorclient.systems.modules.Category;
@@ -12,11 +11,11 @@ import org.slf4j.Logger;
 
 public class Addon extends MeteorAddon {
     public static final Logger LOG = LogUtils.getLogger();
-    public static final Category CATEGORY = new Category("MapArt");
+    public static final Category CATEGORY = new Category("Nerv Printer");
 
     @Override
     public void onInitialize() {
-        LOG.info("Initializing Map Printer");
+        LOG.info("Initializing Nerv Printer");
 
         // Modules
         Modules.get().add(new CarpetPrinter());
@@ -33,6 +32,6 @@ public class Addon extends MeteorAddon {
 
     @Override
     public String getPackage() {
-        return "com.julflips.map_printer";
+        return "com.julflips.nerv_printer";
     }
 }

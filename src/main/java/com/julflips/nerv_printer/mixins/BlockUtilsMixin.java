@@ -1,4 +1,4 @@
-package com.julflips.map_printer.mixins;
+package com.julflips.nerv_printer.mixins;
 
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
 import net.minecraft.block.Block;
