@@ -161,8 +161,8 @@ public class StaircasedPrinter extends Module {
         .build()
     );
 
-    private final Setting<Boolean> autoFolderDetection = sgGeneral.add(new BoolSetting.Builder()
-        .name("auto-folder-detection")
+    private final Setting<Boolean> use_custom_folder_path = sgGeneral.add(new BoolSetting.Builder()
+        .name("use_custom_folder_path")
         .description("Attempts to automatically find the path to your Minecraft directory.")
         .defaultValue(true)
         .build()
@@ -174,7 +174,7 @@ public class StaircasedPrinter extends Module {
         .defaultValue("C:\\Users\\(username)\\AppData\\Roaming\\.minecraft\\nerv-printer")
         .wide()
         .renderer(StarscriptTextBoxRenderer.class)
-        .visible(() -> !autoFolderDetection.get())
+        .visible(() -> use_custom_folder_path.get())
         .build()
     );
 
@@ -349,7 +349,7 @@ public class StaircasedPrinter extends Module {
         timeoutTicks = 0;
         interactTimeout = 0;
 
-        if (autoFolderDetection.get()) {
+        if (!use_custom_folder_path.get()) {
             mapFolder = new File(Utils.getMinecraftDirectory() + File.separator + "nerv-printer");
         } else {
             mapFolder = new File(mapPrinterFolderPath.get());
