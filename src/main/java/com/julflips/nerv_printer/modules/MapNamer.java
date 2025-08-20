@@ -32,18 +32,18 @@ public class MapNamer extends Module {
         .build()
     );
 
-    private final Setting<Integer> startY = sgGeneral.add(new IntSetting.Builder()
-        .name("start-y")
-        .description("The starting y index from which the enumeration should begin.")
+    private final Setting<Integer> endX = sgGeneral.add(new IntSetting.Builder()
+        .name("end-x")
+        .description("The maximum x value of the map.")
         .defaultValue(0)
         .min(0)
         .sliderRange(0, 10)
         .build()
     );
 
-    private final Setting<Integer> endX = sgGeneral.add(new IntSetting.Builder()
-        .name("end-x")
-        .description("The maximum x value of the map.")
+    private final Setting<Integer> startY = sgGeneral.add(new IntSetting.Builder()
+        .name("start-y")
+        .description("The starting y index from which the enumeration should begin.")
         .defaultValue(0)
         .min(0)
         .sliderRange(0, 10)
@@ -94,7 +94,7 @@ public class MapNamer extends Module {
     );
 
     public MapNamer() {
-        super(Addon.CATEGORY, "map-namer", "Automatically names maps in the inventory using the format: Map-name + Y + Separator + X.");
+        super(Addon.CATEGORY, "map-namer", "Automatically names maps in the inventory using the format: Map-Name + X + Separator + Y.");
     }
 
     ArrayList<Integer> mapSlots;
@@ -180,7 +180,7 @@ public class MapNamer extends Module {
 
             IClientPlayerInteractionManager cim = (IClientPlayerInteractionManager) mc.interactionManager;
             cim.clickSlot(mc.player.currentScreenHandler.syncId, slot, 1, SlotActionType.QUICK_MOVE, mc.player);
-            String newMapName = mapName.get() + currentY + separator + currentX;
+            String newMapName = mapName.get() + currentX + separator + currentY;
             mc.getNetworkHandler().sendPacket(new RenameItemC2SPacket(newMapName));
             cim.clickSlot(mc.player.currentScreenHandler.syncId, 2, 1, SlotActionType.QUICK_MOVE, mc.player);
 
