@@ -37,7 +37,7 @@ This chest should contain empty maps and glass panes for the bot to lock new map
 We use a trapped chest to activate the dispensers for a short amount of time. In contrast to a button, it is not destroyed by water, and we can easily confirm that the reset was activated.
 
 ### Load NBT files
-When the module is started for the first time a "map-printer" folder is created in your Minecraft directory. Put in as many 2D 1x1 NBT files as you like. Keep in mind the bot will process them in alphabetical order.
+When the module is started for the first time a "nerv-printer" folder is created in your Minecraft directory. Put in as many 2D 1x1 NBT files as you like. Keep in mind the bot will process them in alphabetical order.
 ## Workflow
 The addon follows these 3 steps:
 
