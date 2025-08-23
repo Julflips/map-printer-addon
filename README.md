@@ -12,4 +12,4 @@ The Fullblock Printer utilizes a TNT-bomber and a large item sorter to reuse mos
 ## Map Namer
 Semi-automatically names unnamed map items in inventory. Pauses on anvil break and insufficient xp and can be resumed.
 
-[![Map Namer](https://img.youtube.com/vi/3karXgUGU8U/0.jpg)]([https://www.youtube.com/watch?v=fY756i6OUpQ](https://www.youtube.com/watch?v=3karXgUGU8U))
+[![Map Namer](https://img.youtube.com/vi/3karXgUGU8U/0.jpg)](https://www.youtube.com/watch?v=3karXgUGU8U)
