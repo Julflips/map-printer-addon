@@ -184,11 +184,11 @@ public class MapNamer extends Module {
             mc.getNetworkHandler().sendPacket(new RenameItemC2SPacket(newMapName));
             cim.clickSlot(mc.player.currentScreenHandler.syncId, 2, 1, SlotActionType.QUICK_MOVE, mc.player);
 
-            currentX++;
-            if (currentX > endX.get()) {
-                currentX = 0;
-                currentY++;
-                if (currentY > endY.get()) {
+            currentY++;
+            if (currentY > endY.get()) {
+                currentY = 0;
+                currentX++;
+                if (currentX > endX.get()) {
                     if (mapSlots.isEmpty()) {
                         info("Complete map was successfully named.");
                         startX.set(0);
