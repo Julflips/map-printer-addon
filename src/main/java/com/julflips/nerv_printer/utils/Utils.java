@@ -1,5 +1,6 @@
 package com.julflips.nerv_printer.utils;
 
+import net.fabricmc.loader.api.FabricLoader;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import meteordevelopment.meteorclient.events.game.GameLeftEvent;
 import meteordevelopment.meteorclient.events.packets.PacketEvent;
@@ -153,21 +154,8 @@ public class Utils {
         return new Pair(dumpSlots, materialInInv);
     }
 
-    public static String getMinecraftDirectory() {
-        String os = System.getProperty("os.name").toLowerCase();
-        String userHome = System.getProperty("user.home");
-
-        // Check operating system to determine Minecraft directory location
-        if (os.contains("win")) {
-            return userHome + "\\AppData\\Roaming\\.minecraft";
-        } else if (os.contains("mac")) {
-            return userHome + "/Library/Application Support/minecraft";
-        } else if (os.contains("nix") || os.contains("nux") || os.contains("aix")) {
-            return userHome + "/.minecraft";
-        } else {
-            // Unsupported OS, handle accordingly
-            throw new IllegalStateException("Unsupported operating system: " + os);
-        }
+    public static File getMinecraftDirectory() {
+        return FabricLoader.getInstance().getGameDir().toFile();
     }
 
     public static boolean createMapFolder(File mapFolder) {
