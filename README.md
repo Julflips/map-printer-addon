@@ -26,7 +26,7 @@ A collection of maps printed with this addon:
   <img src="Documentation/Gallery/BeggingAtSpawn.png" alt="Begging At Spawn" height="200">
   <img src="Documentation/Gallery/CC&Lelouch.png" alt="CC & Lelouch" height="200">
   <img src="Documentation/Gallery/HoloAtDawn.png" alt="Holo At Dawn" height="200">
-  <img src="Documentation/Gallery/JuflipsMazeGame.png" alt="Juflips Maze Game" height="200">
+  <img src="Documentation/Gallery/JulflipsMazeGame.png" alt="Juflips Maze Game" height="200">
   <img src="Documentation/Gallery/MakimaFeet.png" alt="Makima Feet" height="200">
   <img src="Documentation/Gallery/MakimasEyes.png" alt="Makima's Eyes" height="200">
   <img src="Documentation/Gallery/MapOfJapan.png" alt="Map Of Japan" height="200">
