@@ -207,9 +207,9 @@ public class CarpetPrinter extends Module {
     );
 
     private final Setting<Boolean> use_custom_folder_path = sgGeneral.add(new BoolSetting.Builder()
-        .name("use_custom_folder_path")
-        .description("Attempts to automatically find the path to your Minecraft directory.")
-        .defaultValue(true)
+        .name("custom-folder-path")
+        .description("Allows to set a custom path to the nbt folder.")
+        .defaultValue(false)
         .build()
     );
 
