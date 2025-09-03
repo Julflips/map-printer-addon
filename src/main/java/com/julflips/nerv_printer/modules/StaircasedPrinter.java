@@ -350,7 +350,7 @@ public class StaircasedPrinter extends Module {
         interactTimeout = 0;
 
         if (!use_custom_folder_path.get()) {
-            mapFolder = new File(Utils.getMinecraftDirectory() + File.separator + "nerv-printer");
+            mapFolder = new File(Utils.getMinecraftDirectory(), "nerv-printer");
         } else {
             mapFolder = new File(mapPrinterFolderPath.get());
         }
