@@ -943,6 +943,7 @@ public class CarpetPrinter extends Module {
                         warning("ErrorAction is ToggleOff: Stopping because of an error...");
                         Utils.setWPressed(false);
                         toggle();
+                        return;
                     }
                     if (errorAction.get() == ErrorAction.Repair) {
                         info("Fixing errors: ");
@@ -952,8 +953,8 @@ public class CarpetPrinter extends Module {
                             Vec3d fixPos = errorPos.toCenterPos().subtract(0.5,0.5,0.5);
                             checkpoints.add(new Pair(fixPos, new Pair("repair", errorPos)));
                         }
+                        return;
                     }
-                    return;
                 }
                 info("Finished building map");
                 previousInvalidPlacements.clear();
