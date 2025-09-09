@@ -1223,7 +1223,7 @@ public class FullBlockPrinter extends Module {
     }
 
     private boolean prepareNextMapFile() {
-        mapFile = Utils.getNextMapFile(mapFolder, startedFiles);
+        mapFile = Utils.getNextMapFile(mapFolder, startedFiles, moveToFinishedFolder.get());
 
         if (mapFile == null) {
             if (disableOnFinished.get()) {

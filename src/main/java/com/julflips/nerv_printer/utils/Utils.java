@@ -356,7 +356,7 @@ public class Utils {
         mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, sourceSlot, 0, SlotActionType.PICKUP , new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
     }
 
-    public static File getNextMapFile(File mapFolder, ArrayList<File> startedFiles) {
+    public static File getNextMapFile(File mapFolder, ArrayList<File> startedFiles, boolean areMoved) {
         File[] files = mapFolder.listFiles();
         if (files == null) return null;
         Arrays.sort(files, Comparator
@@ -364,7 +364,10 @@ public class Utils {
             .thenComparing(File::getName));                // then sort alphabetically
 
         for (File file : files) {
-            if (!startedFiles.contains(file) && file.isFile() && file.getName().toLowerCase().endsWith(".nbt")) {
+            // Only check if file was used if not moving to finished folder
+            // since they are not in the map folder in that case
+            if ((!startedFiles.contains(file) || areMoved) &&
+                file.isFile() && file.getName().toLowerCase().endsWith(".nbt")) {
                 startedFiles.add(file);
                 return file;
             }
