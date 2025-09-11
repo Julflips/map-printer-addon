@@ -88,7 +88,9 @@ public class CarpetPrinter extends Module {
     private final Setting<List<Block>> startBlock = sgGeneral.add(new BlockListSetting.Builder()
         .name("start-Block")
         .description("Which block to interact with to start the printing process.")
-        .defaultValue(Blocks.STONE_BUTTON)
+        .defaultValue(Blocks.STONE_BUTTON, Blocks.ACACIA_BUTTON, Blocks.BAMBOO_BUTTON, Blocks.BIRCH_BUTTON,
+            Blocks.CRIMSON_BUTTON, Blocks.DARK_OAK_BUTTON, Blocks.JUNGLE_BUTTON, Blocks.OAK_BUTTON,
+            Blocks.POLISHED_BLACKSTONE_BUTTON, Blocks.SPRUCE_BUTTON, Blocks.WARPED_BUTTON)
         .build()
     );
 
@@ -206,7 +208,7 @@ public class CarpetPrinter extends Module {
         .build()
     );
 
-    private final Setting<Boolean> use_custom_folder_path = sgGeneral.add(new BoolSetting.Builder()
+    private final Setting<Boolean> customFolderPath = sgGeneral.add(new BoolSetting.Builder()
         .name("custom-folder-path")
         .description("Allows to set a custom path to the nbt folder.")
         .defaultValue(false)
@@ -219,7 +221,7 @@ public class CarpetPrinter extends Module {
         .defaultValue("C:\\Users\\(username)\\AppData\\Roaming\\.minecraft\\nerv-printer")
         .wide()
         .renderer(StarscriptTextBoxRenderer.class)
-        .visible(() -> use_custom_folder_path.get())
+        .visible(() -> customFolderPath.get())
         .build()
     );
 
@@ -379,7 +381,7 @@ public class CarpetPrinter extends Module {
         interactTimeout = 0;
         closeResetChestTicks = 0;
 
-        if (!use_custom_folder_path.get()) {
+        if (!customFolderPath.get()) {
             mapFolder = new File(Utils.getMinecraftDirectory(), "nerv-printer");
         } else {
             mapFolder = new File(mapPrinterFolderPath.get());
