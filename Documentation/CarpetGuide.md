@@ -47,7 +47,7 @@ The addon follows these 3 steps:
 
 
 ### Register important blocks
-The module will prompt you to interact with all necessary blocks. Chests only have to be selected once even though the rendered box might only highlight half of the chest. Once you are finished interact with the top left (-X, -Z) corner of the map area to start the next step. Every inventory slot containing nothing or carpets will be marked as a slot for future carpets.
+The module will prompt you to interact with all necessary blocks. Chests only have to be selected once even though the rendered box might only highlight half of the chest. When you are done, interact with one of the start-blocks specified in the start-blocks setting (default are all buttons) to start printing. Every inventory slot containing nothing or carpets will be marked as a slot for future carpets.
 
 ### Build Map
 The bot will build the map line by line. It calculates the maximum area he can cover with carpets using the free slots he has available and restocks accordingly. When one color is empty he dumps the remaining carpets into the DumpStation and the cycle repeats.
