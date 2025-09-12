@@ -42,7 +42,7 @@ The addon follows these 3 steps:
 
 
 ### Register important blocks
-The module will prompt you to interact with all special blocks. Chests only have to be selected once even though the rendered box might only highlight half of the chest. **Once you are finished interact with the top left (-X, -Z) corner of the map area to start the next step.** It is highlighted with a box. Every inventory slot containing nothing or a material that was registered will be marked as a slot for future material. All other slots will not be used.
+The module will prompt you to interact with all special blocks. Chests only have to be selected once even though the rendered box might only highlight half of the chest. **When you are done, interact with one of the start-blocks specified in the start-blocks setting (default are all buttons) to start printing.** It is highlighted with a box. Every inventory slot containing nothing or a material that was registered will be marked as a slot for future material. All other slots will not be used.
 
 ### Build Map
 The bot will build the map line by line. It calculates the maximum area he can cover with the free slots he has available and restocks accordingly. When one material is empty he dumps the unnecessary items into the DumpStation and the cycle repeats.
