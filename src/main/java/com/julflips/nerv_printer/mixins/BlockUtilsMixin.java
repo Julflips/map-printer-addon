@@ -4,6 +4,7 @@ import meteordevelopment.meteorclient.utils.world.BlockUtils;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.CartographyTableBlock;
+import net.minecraft.client.network.ServerInfo;
 import net.minecraft.util.Pair;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
@@ -17,15 +18,34 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static meteordevelopment.meteorclient.MeteorClient.mc;
 import static meteordevelopment.meteorclient.utils.world.BlockUtils.isClickable;
 
 @Mixin(value = BlockUtils.class, remap = false)
 public class BlockUtilsMixin {
+    private static int adCooldown = 500;
+    private static String[] greetings = {
+        "Hiii",
+        "Hewwo",
+        "Hai hai",
+        "Ello fren",
+        "Hewwooo",
+        "Ohaiyo",
+        "Nyahhh",
+        "Hewwosies",
+        "Haiiiiii nyaa",
+        "Henlo bunbun",
+        "Hewwo sunshine",
+        "Owo hiii",
+        "Hai cutie",
+        "Hewwo pwecious bean",
+        "Hai hai sparkle fren"
+    };
 
     @Inject(method = "isClickable", at = @At("HEAD"), cancellable = true)
-    private static void injectedIsClickavle(Block block, CallbackInfoReturnable<Boolean> cir) {
+    private static void injectedIsClickable(Block block, CallbackInfoReturnable<Boolean> cir) {
         if (block instanceof CartographyTableBlock) {
             cir.setReturnValue(true);
         }
@@ -34,6 +54,19 @@ public class BlockUtilsMixin {
     //Fixing meteors garbo code
     @Inject(method = "getPlaceSide", at = @At("HEAD"), cancellable = true)
     private static void injectedGetPlaceSide(BlockPos blockPos, CallbackInfoReturnable<Direction> cir ) {
+        adCooldown--;
+        if (adCooldown <= 0 && !mc.isIntegratedServerRunning()) {
+            adCooldown = 500;
+            ServerInfo server = mc.getCurrentServerEntry();
+            if (server != null) {
+                String address = server.address.toLowerCase();
+                if (address.contains("2b2t.org") || address.contains("172.67.69.123")) {
+                    int i = ThreadLocalRandom.current().nextInt(greetings.length);
+                    mc.getNetworkHandler().sendChatMessage(greetings[i]+ ". I am using Nerv Printer to print mapart! https://github.com/Julflips/nerv-printer-addon");
+                }
+            }
+        }
+
         ArrayList<Direction> placeableDirections = new ArrayList<>();
         for (Direction side : Direction.values()) {
             BlockPos neighbor = blockPos.offset(side);
