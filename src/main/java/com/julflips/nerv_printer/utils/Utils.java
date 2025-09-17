@@ -1,6 +1,6 @@
 package com.julflips.nerv_printer.utils;
 
-import net.fabricmc.loader.api.FabricLoader;
+import com.julflips.nerv_printer.mixininterfaces.IClientPlayerInteractionManager;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import meteordevelopment.meteorclient.events.game.GameLeftEvent;
 import meteordevelopment.meteorclient.events.packets.PacketEvent;
@@ -8,6 +8,7 @@ import meteordevelopment.meteorclient.utils.misc.input.Input;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.orbit.EventHandler;
 import meteordevelopment.orbit.EventPriority;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.item.Item;
@@ -21,7 +22,6 @@ import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
 import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.screen.slot.SlotActionType;
-import com.julflips.nerv_printer.mixininterfaces.IClientPlayerInteractionManager;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Pair;
 import net.minecraft.util.math.BlockPos;
@@ -38,25 +38,9 @@ public class Utils {
 
     private static int nextInteractID = 2;
 
-
-
-    @EventHandler
-    public void onGameLeft(GameLeftEvent event) {
-        nextInteractID = 2;
+    public static int getNextInteractID() {
+        return nextInteractID;
     }
-
-    @EventHandler(priority = EventPriority.HIGHEST - 1)
-    private void onReceivePacket(PacketEvent.Receive event) {
-        if (event.packet instanceof PlayerInteractItemC2SPacket packet) {
-            nextInteractID = packet.getSequence() + 1;
-        }
-
-        if (event.packet instanceof PlayerInteractBlockC2SPacket packet) {
-            nextInteractID = packet.getSequence() + 1;
-        }
-    }
-
-    public static int getNextInteractID() {return nextInteractID;}
 
     public static ArrayList<Pair<BlockPos, Vec3d>> saveAdd(ArrayList<Pair<BlockPos, Vec3d>> list, BlockPos blockPos, Vec3d openPos) {
         for (Pair<BlockPos, Vec3d> pair : list) {
@@ -72,7 +56,7 @@ public class Utils {
     public static int stacksRequired(HashMap<Block, Integer> requiredItems) {
         //Calculates how many slots are required for the dictionary {Block: Amount}
         int stacks = 0;
-        for (int amount: requiredItems.values()) {
+        for (int amount : requiredItems.values()) {
             if (amount == 0) continue;
             stacks += Math.ceil((float) amount / 64f);
         }
@@ -106,9 +90,9 @@ public class Utils {
                     int adjustedZ = z;
                     if (!isStartSide) adjustedZ = 127 - z;
                     BlockState blockState = mc.world.getBlockState(mapCorner.add(x + lineBonus, 0, adjustedZ));
-                    if (blockState.isAir() && map[x+lineBonus][adjustedZ] != null) {
+                    if (blockState.isAir() && map[x + lineBonus][adjustedZ] != null) {
                         //ChatUtils.info("Add material for: " + mapCorner.add(x + lineBonus, 0, adjustedZ).toShortString());
-                        Block material = map[x+lineBonus][adjustedZ];
+                        Block material = map[x + lineBonus][adjustedZ];
                         if (!requiredItems.containsKey(material)) requiredItems.put(material, 0);
                         requiredItems.put(material, requiredItems.get(material) + 1);
                         //Check if the item fits into inventory. If not, undo the last increment and return
@@ -190,7 +174,7 @@ public class Utils {
     }
 
     public static int findHighestFreeSlot(InventoryS2CPacket packet) {
-        for (int i = packet.getContents().size()-1; i > packet.getContents().size()-1-36; i--) {
+        for (int i = packet.getContents().size() - 1; i > packet.getContents().size() - 1 - 36; i--) {
             ItemStack stack = packet.getContents().get(i);
             if (stack.isEmpty()) {
                 return i;
@@ -199,7 +183,7 @@ public class Utils {
         return -1;
     }
 
-    public static void swapIntoHotbar(int slot , ArrayList<Integer> hotBarSlots) {
+    public static void swapIntoHotbar(int slot, ArrayList<Integer> hotBarSlots) {
         HashMap<Item, Integer> itemFrequency = new HashMap<>();
         HashMap<Item, Integer> itemSlot = new HashMap<>();
         int targetSlot = hotBarSlots.get(0);
@@ -337,7 +321,7 @@ public class Utils {
     }
 
     public static void getOneItem(int sourceSlot, boolean avoidFirstHotBar, ArrayList<Integer> availableSlots,
-                            ArrayList<Integer> availableHotBarSlots, InventoryS2CPacket packet) {
+                                  ArrayList<Integer> availableHotBarSlots, InventoryS2CPacket packet) {
         int targetSlot = availableHotBarSlots.get(0);
         if (avoidFirstHotBar) {
             targetSlot = availableSlots.get(0);
@@ -351,9 +335,9 @@ public class Utils {
             targetSlot -= 9;
         }
         targetSlot = packet.getContents().size() - 36 + targetSlot;
-        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, sourceSlot, 0, SlotActionType.PICKUP , new ItemStack(Items.MAP), Int2ObjectMaps.emptyMap()));
+        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, sourceSlot, 0, SlotActionType.PICKUP, new ItemStack(Items.MAP), Int2ObjectMaps.emptyMap()));
         mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, targetSlot, 1, SlotActionType.PICKUP, new ItemStack(Items.MAP), Int2ObjectMaps.emptyMap()));
-        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, sourceSlot, 0, SlotActionType.PICKUP , new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
+        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, sourceSlot, 0, SlotActionType.PICKUP, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
     }
 
     public static File getNextMapFile(File mapFolder, ArrayList<File> startedFiles, boolean areMoved) {
@@ -386,5 +370,21 @@ public class Utils {
             }
         }
         return bestSide;
+    }
+
+    @EventHandler
+    public void onGameLeft(GameLeftEvent event) {
+        nextInteractID = 2;
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST - 1)
+    private void onReceivePacket(PacketEvent.Receive event) {
+        if (event.packet instanceof PlayerInteractItemC2SPacket packet) {
+            nextInteractID = packet.getSequence() + 1;
+        }
+
+        if (event.packet instanceof PlayerInteractBlockC2SPacket packet) {
+            nextInteractID = packet.getSequence() + 1;
+        }
     }
 }

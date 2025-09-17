@@ -16,7 +16,10 @@ import meteordevelopment.meteorclient.utils.player.Rotations;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.meteorclient.utils.world.BlockUtils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.*;
+import net.minecraft.block.AbstractChestBlock;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -24,7 +27,10 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtSizeTracker;
-import net.minecraft.network.packet.c2s.play.*;
+import net.minecraft.network.packet.c2s.play.ClickSlotC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
 import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.screen.slot.SlotActionType;
@@ -283,11 +289,6 @@ public class StaircasedPrinter extends Module {
         .visible(() -> render.get())
         .build()
     );
-
-    public StaircasedPrinter() {
-        super(Addon.CATEGORY, "staircased-printer", "Automatically builds full-block maps with staircasing from nbt files.");
-    }
-
     int timeoutTicks;
     int interactTimeout;
     long lastTickTime;
@@ -319,6 +320,10 @@ public class StaircasedPrinter extends Module {
     Pair<Block, Integer>[][] map;
     File mapFolder;
     File mapFile;
+
+    public StaircasedPrinter() {
+        super(Addon.CATEGORY, "staircased-printer", "Automatically builds full-block maps with staircasing from nbt files.");
+    }
 
     @Override
     public void onActivate() {
@@ -407,11 +412,11 @@ public class StaircasedPrinter extends Module {
             requiredItems.put(material, oldAmount - invMaterial.get(material));
         }
 
-        for (Block block: requiredItems.keySet()) {
+        for (Block block : requiredItems.keySet()) {
             if (requiredItems.get(block) <= 0) continue;
             int stacks = (int) Math.ceil((float) requiredItems.get(block) / 64f);
             info("Restocking §a" + stacks + " stacks " + block.getName().getString() + " (" + requiredItems.get(block) + ")");
-            restockList.add(0, Triple.of(block , stacks, requiredItems.get(block)));
+            restockList.add(0, Triple.of(block, stacks, requiredItems.get(block)));
         }
         addClosestRestockCheckpoint();
     }
@@ -456,15 +461,15 @@ public class StaircasedPrinter extends Module {
                 }
             }
             if (lineFinished) continue;
-            Vec3d cp1 = mapCorner.toCenterPos().add(x,0,-1);
-            Vec3d cp2 = mapCorner.toCenterPos().add(x, map[x][127].getRight(), map[0].length-1);
+            Vec3d cp1 = mapCorner.toCenterPos().add(x, 0, -1);
+            Vec3d cp2 = mapCorner.toCenterPos().add(x, map[x][127].getRight(), map[0].length - 1);
             checkpoints.add(new Pair(cp1, new Pair("", null)));
             checkpoints.add(new Pair(cp2, new Pair("", null)));
             checkpoints.add(new Pair(cp1, new Pair("lineEnd", null)));
         }
         if (checkpoints.size() > 0 && sprintFirst) {
             //Make player sprint to the start of the map
-            Pair<Vec3d, Pair<String, BlockPos>>firstPoint = checkpoints.remove(0);
+            Pair<Vec3d, Pair<String, BlockPos>> firstPoint = checkpoints.remove(0);
             checkpoints.add(0, new Pair(firstPoint.getLeft(), new Pair("sprint", firstPoint.getRight().getRight())));
         }
     }
@@ -473,13 +478,13 @@ public class StaircasedPrinter extends Module {
         boolean valid = true;
         for (int x = 0; x < 128; x++) {
             for (int z = 0; z < 128; z++) {
-                BlockState blockState = mc.world.getBlockState(mapCorner.add(x ,  map[x][z].getRight(), z));
+                BlockState blockState = mc.world.getBlockState(mapCorner.add(x, map[x][z].getRight(), z));
                 if (!blockState.isAir()) {
                     if (map[x][z].getLeft() != blockState.getBlock()) {
                         int xError = x + mapCorner.getX();
                         int zError = z + mapCorner.getZ();
-                        if (logErrors.get()) warning("Error at "+xError+", "+zError+". " +
-                            "Is "+blockState.getBlock().getName().getString()+" - Should be "+map[x][z].getLeft().getName().getString());
+                        if (logErrors.get()) warning("Error at " + xError + ", " + zError + ". " +
+                            "Is " + blockState.getBlock().getName().getString() + " - Should be " + map[x][z].getLeft().getName().getString());
                         valid = false;
                     }
                 }
@@ -540,7 +545,8 @@ public class StaircasedPrinter extends Module {
                 }
                 break;
             case SelectingChests:
-                if (startBlock.get().isEmpty()) warning("No block selected as Start Block! Please select one in the settings.");
+                if (startBlock.get().isEmpty())
+                    warning("No block selected as Start Block! Please select one in the settings.");
                 blockPos = packet.getBlockHitResult().getBlockPos();
                 BlockState blockState = mc.world.getBlockState(blockPos);
                 if (startBlock.get().contains(blockState.getBlock())) {
@@ -597,7 +603,7 @@ public class StaircasedPrinter extends Module {
             //info("Chest content received.");
             Item foundItem = null;
             boolean isMixedContent = false;
-            for (int i = 0; i < packet.getContents().size()-36; i++) {
+            for (int i = 0; i < packet.getContents().size() - 36; i++) {
                 ItemStack stack = packet.getContents().get(i);
                 if (!stack.isEmpty()) {
                     if (foundItem != null && foundItem != stack.getItem().asItem()) {
@@ -646,7 +652,7 @@ public class StaircasedPrinter extends Module {
             case AwaitRestockResponse:
                 interactTimeout = 0;
                 boolean foundMaterials = false;
-                for (int i = 0; i < packet.getContents().size()-36; i++) {
+                for (int i = 0; i < packet.getContents().size() - 36; i++) {
                     ItemStack stack = packet.getContents().get(i);
 
                     if (restockList.get(0).getMiddle() == 0) {
@@ -674,12 +680,12 @@ public class StaircasedPrinter extends Module {
                 int mapSlot = -1;
                 int paneSlot = -1;
                 //Search for map and glass pane
-                for (int slot = 0; slot < packet.getContents().size()-36; slot++) {
+                for (int slot = 0; slot < packet.getContents().size() - 36; slot++) {
                     ItemStack stack = packet.getContents().get(slot);
                     if (stack.getItem() == Items.MAP) mapSlot = slot;
                     if (stack.getItem() == Items.GLASS_PANE) paneSlot = slot;
                 }
-                if(mapSlot == -1 || paneSlot == -1) {
+                if (mapSlot == -1 || paneSlot == -1) {
                     warning("Not enough Empty Maps/Glass Panes in Map Material Chest");
                     return;
                 }
@@ -689,7 +695,7 @@ public class StaircasedPrinter extends Module {
                 Utils.getOneItem(paneSlot, true, availableSlots, availableHotBarSlots, packet);
                 mc.player.getInventory().selectedSlot = availableHotBarSlots.get(0);
 
-                Vec3d center = mapCorner.add(map.length/2 - 1, 0, map[0].length/2 - 1).toCenterPos();
+                Vec3d center = mapCorner.add(map.length / 2 - 1, 0, map[0].length / 2 - 1).toCenterPos();
                 checkpoints.add(new Pair(center, new Pair("fillMap", null)));
                 state = State.Walking;
                 break;
@@ -728,7 +734,7 @@ public class StaircasedPrinter extends Module {
             case AwaitFinishedMapChestResponse:
                 interactTimeout = 0;
                 timeoutTicks = postRestockDelay.get();
-                for (int slot = packet.getContents().size()-36; slot < packet.getContents().size(); slot++) {
+                for (int slot = packet.getContents().size() - 36; slot < packet.getContents().size(); slot++) {
                     ItemStack stack = packet.getContents().get(slot);
                     if (stack.getItem() == Items.FILLED_MAP) {
                         mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.getSyncId(), 1, slot, 0, SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), Int2ObjectMaps.emptyMap()));
@@ -793,7 +799,8 @@ public class StaircasedPrinter extends Module {
                 refillInventory(invInformation.getRight());
                 state = State.Walking;
             } else {
-                if (debugPrints.get()) info("Dumping §a" + mc.player.getInventory().getStack(dumpSlot).getName().getString() + " (slot " + dumpSlot + ")");
+                if (debugPrints.get())
+                    info("Dumping §a" + mc.player.getInventory().getStack(dumpSlot).getName().getString() + " (slot " + dumpSlot + ")");
                 InvUtils.drop().slot(dumpSlot);
                 timeoutTicks = invActionDelay.get();
             }
@@ -803,7 +810,7 @@ public class StaircasedPrinter extends Module {
             if (!prepareNextMapFile()) return;
             info("Building: §a" + mapFile.getName());
             info("Requirements: ");
-            for (Pair<Block, Integer> p: blockPaletteDict.values()) {
+            for (Pair<Block, Integer> p : blockPaletteDict.values()) {
                 if (p.getRight() == 0) continue;
                 info(p.getLeft().getName().getString() + ": " + p.getRight());
             }
@@ -833,12 +840,12 @@ public class StaircasedPrinter extends Module {
             return;
         }
         Vec3d goal = checkpoints.get(0).getLeft();
-        if (PlayerUtils.distanceTo(goal.add(0,mc.player.getY()-goal.y,0)) < checkpointBuffer.get()) {
+        if (PlayerUtils.distanceTo(goal.add(0, mc.player.getY() - goal.y, 0)) < checkpointBuffer.get()) {
             Pair<String, BlockPos> checkpointAction = checkpoints.get(0).getRight();
             if (debugPrints.get() && checkpointAction.getLeft() != null) info("Reached " + checkpointAction.getLeft());
             checkpoints.remove(0);
             mc.player.setPosition(goal.getX(), mc.player.getY(), goal.getZ());
-            mc.player.setVelocity(0,0,0);
+            mc.player.setVelocity(0, 0, 0);
             switch (checkpointAction.getLeft()) {
                 case "lineEnd":
                     arePlacementsCorrect();
@@ -892,7 +899,7 @@ public class StaircasedPrinter extends Module {
                 checkpoints.add(0, new Pair(bestChest.getRight(), new Pair("mapMaterialChest", bestChest.getLeft())));
                 try {
                     if (moveToFinishedFolder.get()) {
-                        mapFile.renameTo(new File(mapFile.getParentFile().getAbsolutePath()+File.separator+"_finished_maps"+File.separator+mapFile.getName()));
+                        mapFile.renameTo(new File(mapFile.getParentFile().getAbsolutePath() + File.separator + "_finished_maps" + File.separator + mapFile.getName()));
                     }
                 } catch (Exception e) {
                     warning("Failed to move map file " + mapFile.getName() + " to finished map folder");
@@ -916,7 +923,7 @@ public class StaircasedPrinter extends Module {
         if (nextPlacementPos == null) return;
         mc.player.setPitch((float) Rotations.getPitch(nextPlacementPos));
 
-       if (nextPlacementPos.getX() <= goal.getX() && canSee(nextPlacementPos.toCenterPos())
+        if (nextPlacementPos.getX() <= goal.getX() && canSee(nextPlacementPos.toCenterPos())
             && PlayerUtils.distanceTo(nextPlacementPos.toCenterPos()) <= placeRange.get()) {
             tryPlacingBlock(nextPlacementPos);
         }
@@ -964,10 +971,10 @@ public class StaircasedPrinter extends Module {
                 //BlockUtils.place(pos, Hand.MAIN_HAND, slot, true,50, true, true, false);
                 InvUtils.swap(slot, false);
                 Direction direction = Direction.UP;
-                Vec3d hitPos = pos.toCenterPos().add(0,-0.5,0);
+                Vec3d hitPos = pos.toCenterPos().add(0, -0.5, 0);
                 if (mc.player.getY() <= pos.toCenterPos().y) {
                     direction = Direction.NORTH;
-                    hitPos = pos.toCenterPos().add(0,0,0.5);
+                    hitPos = pos.toCenterPos().add(0, 0, 0.5);
                 }
                 info("Direction: " + direction);
                 BlockHitResult bhr = new BlockHitResult(hitPos, direction, pos, false);
@@ -977,7 +984,7 @@ public class StaircasedPrinter extends Module {
                     InvUtils.swap(slot, false);
 
                     BlockUtils.interact(bhr, Hand.MAIN_HAND, true);
-                    InvUtils.swap(8,true);
+                    InvUtils.swap(8, true);
                     BlockUtils.interact(bhr, Hand.MAIN_HAND, true);
                     InvUtils.swapBack();
                 });
@@ -994,14 +1001,14 @@ public class StaircasedPrinter extends Module {
                 Utils.swapIntoHotbar(slot, availableHotBarSlots);
                 //BlockUtils.place(pos, Hand.MAIN_HAND, resultSlot, true,50, true, true, false);
                 Utils.setWPressed(false);
-                mc.player.setVelocity(0,0,0);
+                mc.player.setVelocity(0, 0, 0);
                 timeoutTicks = swapDelay.get();
                 return false;
             }
         }
         if (lastSwappedMaterial == material) return false;      //Wait for swapped material
-        info("No "+ material.getName().getString() + " found in inventory. Resetting...");
-        mc.player.setVelocity(0,0,0);
+        info("No " + material.getName().getString() + " found in inventory. Resetting...");
+        mc.player.setVelocity(0, 0, 0);
         Vec3d pathCheckpoint = new Vec3d(mc.player.getX(), mapCorner.toCenterPos().getY(), mapCorner.north().toCenterPos().getZ());
         checkpoints.add(0, new Pair(mc.player.getPos(), new Pair("walkRestock", null)));
         checkpoints.add(0, new Pair(pathCheckpoint, new Pair("walkRestock", null)));
@@ -1013,7 +1020,7 @@ public class StaircasedPrinter extends Module {
     private BlockPos getNextPlacementPos(ArrayList<BlockPos> ignoreList) {
         for (int x = 0; x < 128; x++) {
             for (int z = 0; z < 128; z++) {
-                BlockPos blockPos = mapCorner.add(x , map[x][z].getRight(), z);
+                BlockPos blockPos = mapCorner.add(x, map[x][z].getRight(), z);
                 if (ignoreList.contains(blockPos)) continue;
                 BlockState blockState = mc.world.getBlockState(blockPos);
                 if (blockState.isAir()) {
@@ -1067,11 +1074,11 @@ public class StaircasedPrinter extends Module {
         if (material.equals(Blocks.CARTOGRAPHY_TABLE)) {
             list = mapMaterialChests;
         } else if (materialDict.containsKey(material)) {
-            list =  materialDict.get(material);
+            list = materialDict.get(material);
         } else {
             warning("No chest found for " + material.getName().getString());
             toggle();
-            return new Pair<>(new BlockPos(0,0,0), new Vec3d(0,0,0));
+            return new Pair<>(new BlockPos(0, 0, 0), new Vec3d(0, 0, 0));
         }
         //Get nearest chest
         for (Pair<BlockPos, Vec3d> p : list) {
@@ -1084,14 +1091,14 @@ public class StaircasedPrinter extends Module {
         }
         if (bestPos == null || bestChestPos == null) {
             checkedChests.clear();
-            return  getBestChest(material);
+            return getBestChest(material);
         }
         return new Pair(bestChestPos, bestPos);
     }
 
     private void interactWithBlock(BlockPos chestPos) {
         Utils.setWPressed(false);
-        mc.player.setVelocity(0,0,0);
+        mc.player.setVelocity(0, 0, 0);
         mc.player.setYaw((float) Rotations.getYaw(chestPos.toCenterPos()));
         mc.player.setPitch((float) Rotations.getPitch(chestPos.toCenterPos()));
 
@@ -1105,7 +1112,7 @@ public class StaircasedPrinter extends Module {
 
     private void interactWithBlock(BlockHitResult hitResult) {
         Utils.setWPressed(false);
-        mc.player.setVelocity(0,0,0);
+        mc.player.setVelocity(0, 0, 0);
         mc.player.setYaw((float) Rotations.getYaw(hitResult.getBlockPos().toCenterPos()));
         mc.player.setPitch((float) Rotations.getPitch(hitResult.getBlockPos().toCenterPos()));
         BlockUtils.interact(hitResult, Hand.MAIN_HAND, true);
@@ -1192,7 +1199,7 @@ public class StaircasedPrinter extends Module {
                 absoluteHeightMap[x][z] = new Pair<>(material, y);
             }
             if (z > 0) {
-                blockPaletteDict.put(blockId, new Pair(blockPaletteDict.get(blockId).getLeft(), blockPaletteDict.get(blockId).getRight()+1));
+                blockPaletteDict.put(blockId, new Pair(blockPaletteDict.get(blockId).getLeft(), blockPaletteDict.get(blockId).getRight() + 1));
             }
         }
         // Smooth the y pos out to max 1 block difference
@@ -1200,10 +1207,10 @@ public class StaircasedPrinter extends Module {
         for (int x = 0; x < absoluteHeightMap.length; x++) {
             int totalYDiff = 0;
             for (int z = 1; z < absoluteHeightMap[0].length; z++) {
-                int predecessorY = absoluteHeightMap[x][z-1].getRight();
+                int predecessorY = absoluteHeightMap[x][z - 1].getRight();
                 int currentY = absoluteHeightMap[x][z].getRight();
                 totalYDiff += Math.max(-1, Math.min(currentY - predecessorY, 1));
-                smoothedHeightMap[x][z-1] = new Pair<>(absoluteHeightMap[x][z].getLeft(), totalYDiff);
+                smoothedHeightMap[x][z - 1] = new Pair<>(absoluteHeightMap[x][z].getLeft(), totalYDiff);
             }
         }
         return smoothedHeightMap;
@@ -1234,9 +1241,9 @@ public class StaircasedPrinter extends Module {
 
     @EventHandler
     private void onRender(Render3DEvent event) {
-        if(mapCorner == null || !render.get()) return;
+        if (mapCorner == null || !render.get()) return;
 
-        event.renderer.box(mapCorner.getX(), mapCorner.getY(), mapCorner.getZ(), mapCorner.getX()+128, mapCorner.getY(), mapCorner.getZ()+128, color.get(), color.get(), ShapeMode.Lines, 0);
+        event.renderer.box(mapCorner.getX(), mapCorner.getY(), mapCorner.getZ(), mapCorner.getX() + 128, mapCorner.getY(), mapCorner.getZ() + 128, color.get(), color.get(), ShapeMode.Lines, 0);
 
         if (renderMap.get()) {
             for (int x = 0; x < map.length; x++) {
@@ -1248,44 +1255,45 @@ public class StaircasedPrinter extends Module {
         }
 
         ArrayList<Pair<BlockPos, Vec3d>> renderedPairs = new ArrayList<>();
-        for (ArrayList<Pair<BlockPos, Vec3d>> list: materialDict.values()) {
+        for (ArrayList<Pair<BlockPos, Vec3d>> list : materialDict.values()) {
             renderedPairs.addAll(list);
         }
         renderedPairs.addAll(mapMaterialChests);
-        for (Pair<BlockPos, Vec3d> pair: renderedPairs) {
-            if (renderChestPositions.get()) event.renderer.box(pair.getLeft(), color.get(), color.get(), ShapeMode.Lines, 0);
+        for (Pair<BlockPos, Vec3d> pair : renderedPairs) {
+            if (renderChestPositions.get())
+                event.renderer.box(pair.getLeft(), color.get(), color.get(), ShapeMode.Lines, 0);
             if (renderOpenPositions.get()) {
                 Vec3d openPos = pair.getRight();
-                event.renderer.box(openPos.x-indicatorSize.get(), openPos.y-indicatorSize.get(), openPos.z-indicatorSize.get(), openPos.x+indicatorSize.get(), openPos.y+indicatorSize.get(), openPos.z+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
+                event.renderer.box(openPos.x - indicatorSize.get(), openPos.y - indicatorSize.get(), openPos.z - indicatorSize.get(), openPos.x + indicatorSize.get(), openPos.y + indicatorSize.get(), openPos.z + indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
         }
 
         if (renderCheckpoints.get()) {
-            for (Pair<Vec3d, Pair<String, BlockPos>> pair: checkpoints) {
+            for (Pair<Vec3d, Pair<String, BlockPos>> pair : checkpoints) {
                 Vec3d cp = pair.getLeft();
-                event.renderer.box(cp.x-indicatorSize.get(), cp.y-indicatorSize.get(), cp.z-indicatorSize.get(), cp.getX()+indicatorSize.get(), cp.getY()+indicatorSize.get(), cp.getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
+                event.renderer.box(cp.x - indicatorSize.get(), cp.y - indicatorSize.get(), cp.z - indicatorSize.get(), cp.getX() + indicatorSize.get(), cp.getY() + indicatorSize.get(), cp.getZ() + indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
         }
 
         if (renderSpecialInteractions.get()) {
             if (pickaxeChest != null) {
                 event.renderer.box(pickaxeChest.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines, 0);
-                event.renderer.box(pickaxeChest.getRight().x-indicatorSize.get(), pickaxeChest.getRight().y-indicatorSize.get(), pickaxeChest.getRight().z-indicatorSize.get(), pickaxeChest.getRight().getX()+indicatorSize.get(), pickaxeChest.getRight().getY()+indicatorSize.get(), pickaxeChest.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
+                event.renderer.box(pickaxeChest.getRight().x - indicatorSize.get(), pickaxeChest.getRight().y - indicatorSize.get(), pickaxeChest.getRight().z - indicatorSize.get(), pickaxeChest.getRight().getX() + indicatorSize.get(), pickaxeChest.getRight().getY() + indicatorSize.get(), pickaxeChest.getRight().getZ() + indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
             if (usedPickaxeChest != null) {
                 event.renderer.box(usedPickaxeChest.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines, 0);
-                event.renderer.box(usedPickaxeChest.getRight().x-indicatorSize.get(), usedPickaxeChest.getRight().y-indicatorSize.get(), usedPickaxeChest.getRight().z-indicatorSize.get(), usedPickaxeChest.getRight().getX()+indicatorSize.get(), usedPickaxeChest.getRight().getY()+indicatorSize.get(), usedPickaxeChest.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
+                event.renderer.box(usedPickaxeChest.getRight().x - indicatorSize.get(), usedPickaxeChest.getRight().y - indicatorSize.get(), usedPickaxeChest.getRight().z - indicatorSize.get(), usedPickaxeChest.getRight().getX() + indicatorSize.get(), usedPickaxeChest.getRight().getY() + indicatorSize.get(), usedPickaxeChest.getRight().getZ() + indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
             if (cartographyTable != null) {
                 event.renderer.box(cartographyTable.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines, 0);
-                event.renderer.box(cartographyTable.getRight().x-indicatorSize.get(), cartographyTable.getRight().y-indicatorSize.get(), cartographyTable.getRight().z-indicatorSize.get(), cartographyTable.getRight().getX()+indicatorSize.get(), cartographyTable.getRight().getY()+indicatorSize.get(), cartographyTable.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
+                event.renderer.box(cartographyTable.getRight().x - indicatorSize.get(), cartographyTable.getRight().y - indicatorSize.get(), cartographyTable.getRight().z - indicatorSize.get(), cartographyTable.getRight().getX() + indicatorSize.get(), cartographyTable.getRight().getY() + indicatorSize.get(), cartographyTable.getRight().getZ() + indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
             if (dumpStation != null) {
-                event.renderer.box(dumpStation.getLeft().x-indicatorSize.get(), dumpStation.getLeft().y-indicatorSize.get(), dumpStation.getLeft().z-indicatorSize.get(), dumpStation.getLeft().getX()+indicatorSize.get(), dumpStation.getLeft().getY()+indicatorSize.get(), dumpStation.getLeft().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
+                event.renderer.box(dumpStation.getLeft().x - indicatorSize.get(), dumpStation.getLeft().y - indicatorSize.get(), dumpStation.getLeft().z - indicatorSize.get(), dumpStation.getLeft().getX() + indicatorSize.get(), dumpStation.getLeft().getY() + indicatorSize.get(), dumpStation.getLeft().getZ() + indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
             if (finishedMapChest != null) {
                 event.renderer.box(finishedMapChest.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines, 0);
-                event.renderer.box(finishedMapChest.getRight().x-indicatorSize.get(), finishedMapChest.getRight().y-indicatorSize.get(), finishedMapChest.getRight().z-indicatorSize.get(), finishedMapChest.getRight().getX()+indicatorSize.get(), finishedMapChest.getRight().getY()+indicatorSize.get(), finishedMapChest.getRight().getZ()+indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
+                event.renderer.box(finishedMapChest.getRight().x - indicatorSize.get(), finishedMapChest.getRight().y - indicatorSize.get(), finishedMapChest.getRight().z - indicatorSize.get(), finishedMapChest.getRight().getX() + indicatorSize.get(), finishedMapChest.getRight().getY() + indicatorSize.get(), finishedMapChest.getRight().getZ() + indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
         }
     }
