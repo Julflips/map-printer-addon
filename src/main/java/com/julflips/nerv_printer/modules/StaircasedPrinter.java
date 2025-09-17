@@ -753,7 +753,7 @@ public class StaircasedPrinter extends Module {
 
         long timeDifference = System.currentTimeMillis() - lastTickTime;
         int allowedPlacements = (int) Math.floor(timeDifference / (long) placeDelay.get());
-        lastTickTime += allowedPlacements * placeDelay.get();
+        lastTickTime += (long) allowedPlacements * placeDelay.get();
 
         if (interactTimeout > 0) {
             interactTimeout--;
@@ -1041,8 +1041,7 @@ public class StaircasedPrinter extends Module {
         RaycastContext raycastContext = new RaycastContext(mc.player.getEyePos(), pos, RaycastContext.ShapeType.OUTLINE,
             RaycastContext.FluidHandling.NONE, mc.player);
         HitResult hitResult = mc.world.raycast(raycastContext);
-        if (hitResult.getPos().equals(pos)) return true;
-        return false;
+        return hitResult.getPos().equals(pos);
     }
 
     private void endRestocking() {

@@ -26,7 +26,7 @@ import static meteordevelopment.meteorclient.utils.world.BlockUtils.isClickable;
 @Mixin(value = BlockUtils.class, remap = false)
 public class BlockUtilsMixin {
     private static int adCooldown = 500;
-    private static String[] greetings = {
+    private static final String[] greetings = {
         "Hiii",
         "Hewwo",
         "Hai hai",

@@ -221,7 +221,7 @@ public class Utils {
         for (Item item : itemFrequency.keySet()) {
             if (itemFrequency.get(item) > topFrequency) {
                 topFrequency = itemFrequency.get(item);
-                topFrequencyItems = new ArrayList<>(Arrays.asList(item));
+                topFrequencyItems = new ArrayList<>(Collections.singletonList(item));
             } else if (itemFrequency.get(item) == topFrequency) {
                 topFrequencyItems.add(item);
             }

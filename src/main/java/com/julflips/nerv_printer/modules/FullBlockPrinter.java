@@ -855,7 +855,7 @@ public class FullBlockPrinter extends Module {
 
         long timeDifference = System.currentTimeMillis() - lastTickTime;
         int allowedPlacements = (int) Math.floor(timeDifference / (long) placeDelay.get());
-        lastTickTime += allowedPlacements * placeDelay.get();
+        lastTickTime += (long) allowedPlacements * placeDelay.get();
 
         if (interactTimeout > 0) {
             interactTimeout--;
