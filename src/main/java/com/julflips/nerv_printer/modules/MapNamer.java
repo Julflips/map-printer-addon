@@ -19,6 +19,7 @@ import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
+import java.util.Objects;
 
 public class MapNamer extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -29,8 +30,7 @@ public class MapNamer extends Module {
         .defaultValue(0)
         .min(0)
         .sliderRange(0, 10)
-        .build()
-    );
+        .build());
 
     private final Setting<Integer> endX = sgGeneral.add(new IntSetting.Builder()
         .name("end-x")
@@ -38,8 +38,7 @@ public class MapNamer extends Module {
         .defaultValue(0)
         .min(0)
         .sliderRange(0, 10)
-        .build()
-    );
+        .build());
 
     private final Setting<Integer> startY = sgGeneral.add(new IntSetting.Builder()
         .name("start-y")
@@ -47,8 +46,7 @@ public class MapNamer extends Module {
         .defaultValue(0)
         .min(0)
         .sliderRange(0, 10)
-        .build()
-    );
+        .build());
 
     private final Setting<Integer> endY = sgGeneral.add(new IntSetting.Builder()
         .name("end-y")
@@ -56,8 +54,7 @@ public class MapNamer extends Module {
         .defaultValue(0)
         .min(0)
         .sliderRange(0, 10)
-        .build()
-    );
+        .build());
 
     public final Setting<String> mapName = sgGeneral.add(new StringSetting.Builder()
         .name("map-name")
@@ -65,8 +62,7 @@ public class MapNamer extends Module {
         .defaultValue("map-name_")
         .wide()
         .renderer(StarscriptTextBoxRenderer.class)
-        .build()
-    );
+        .build());
 
     public final Setting<String> separator = sgGeneral.add(new StringSetting.Builder()
         .name("separator")
@@ -74,8 +70,7 @@ public class MapNamer extends Module {
         .defaultValue("_")
         .wide()
         .renderer(StarscriptTextBoxRenderer.class)
-        .build()
-    );
+        .build());
 
     private final Setting<Integer> renameDelay = sgGeneral.add(new IntSetting.Builder()
         .name("rename-delay")
@@ -83,18 +78,17 @@ public class MapNamer extends Module {
         .defaultValue(10)
         .min(1)
         .sliderRange(1, 20)
-        .build()
-    );
+        .build());
 
     private final Setting<Order> order = sgGeneral.add(new EnumSetting.Builder<Order>()
         .name("order")
         .description("The order in which the maps are named. Slot = Hotbar+Inventory left to right.")
         .defaultValue(Order.Slot)
-        .build()
-    );
+        .build());
 
     public MapNamer() {
-        super(Addon.CATEGORY, "map-namer", "Automatically names maps in the inventory using the format: Map-Name + X + Separator + Y.");
+        super(Addon.CATEGORY, "map-namer",
+            "Automatically names maps in the inventory using the format: Map-Name + X + Separator + Y.");
     }
 
     ArrayList<Integer> mapSlots;
@@ -114,6 +108,7 @@ public class MapNamer extends Module {
 
     @EventHandler
     private void onSendPacket(PacketEvent.Send event) {
+        assert mc.world != null;
         if (state == State.AwaitInteract && event.packet instanceof PlayerInteractBlockC2SPacket packet) {
             BlockPos blockPos = packet.getBlockHitResult().getBlockPos();
             if (mc.world.getBlockState(blockPos).getBlock() instanceof AnvilBlock) {
@@ -124,16 +119,19 @@ public class MapNamer extends Module {
 
     @EventHandler
     private void onReceivePacket(PacketEvent.Receive event) {
+        assert mc.player != null;
         if (state == State.HandleMaps && event.packet instanceof CloseScreenS2CPacket) {
             info("Inventory screen closed. Interact with an anvil.");
             state = State.AwaitInteract;
             return;
         }
-        if (state != State.AwaitScreen) return;
+        if (state != State.AwaitScreen)
+            return;
         if (event.packet instanceof RenameItemC2SPacket packet && !packet.getName().startsWith(mapName.get())) {
             event.cancel();
         }
-        if (!(event.packet instanceof InventoryS2CPacket packet)) return;
+        if (!(event.packet instanceof InventoryS2CPacket packet))
+            return;
 
         if (startX.get() > endX.get() || startY.get() > endY.get()) {
             warning("Start index is larger than end index.");
@@ -149,7 +147,7 @@ public class MapNamer extends Module {
             if (itemStack.getItem() == Items.FILLED_MAP) {
                 // info("Map Name: " + itemStack.getName().getString());
                 if (itemStack.getName().getString().equals("Map")) {
-                    if (adjustedSlot < 9) {  //Stupid slot correction
+                    if (adjustedSlot < 9) { // Stupid slot correction
                         adjustedSlot += 30;
                     } else {
                         adjustedSlot -= 6;
@@ -164,24 +162,31 @@ public class MapNamer extends Module {
 
     @EventHandler
     private void onTick(TickEvent.Pre event) {
-        if (ticks == 0 || state != State.HandleMaps) return;
+        if (ticks == 0 || state != State.HandleMaps)
+            return;
         ticks--;
         if (ticks == 0 && !mapSlots.isEmpty()) {
+            assert mc.player != null;
             if (mc.player.experienceLevel < 1) {
                 info("Not enough XP.");
                 state = State.AwaitInteract;
-                if (mc.currentScreen != null) mc.player.closeHandledScreen();
+                if (mc.currentScreen != null)
+                    mc.player.closeHandledScreen();
                 return;
             }
             int slot = mapSlots.remove(0);
-            if (currentX == -1) currentX = startX.get();
-            if (currentY == -1) currentY = startY.get();
-            // info("Process map: " + slot + " with x: " + startX.get() + ", y: " + startY.get());
+            if (currentX == -1)
+                currentX = startX.get();
+            if (currentY == -1)
+                currentY = startY.get();
+            // info("Process map: " + slot + " with x: " + startX.get() + ", y: " +
+            // startY.get());
 
             IClientPlayerInteractionManager cim = (IClientPlayerInteractionManager) mc.interactionManager;
+            assert cim != null;
             cim.clickSlot(mc.player.currentScreenHandler.syncId, slot, 1, SlotActionType.QUICK_MOVE, mc.player);
             String newMapName = mapName.get() + currentX + separator + currentY;
-            mc.getNetworkHandler().sendPacket(new RenameItemC2SPacket(newMapName));
+            Objects.requireNonNull(mc.getNetworkHandler()).sendPacket(new RenameItemC2SPacket(newMapName));
             cim.clickSlot(mc.player.currentScreenHandler.syncId, 2, 1, SlotActionType.QUICK_MOVE, mc.player);
 
             currentY++;
@@ -196,7 +201,8 @@ public class MapNamer extends Module {
                     } else {
                         info("More maps found than with endX and endY described.");
                     }
-                    if (mc.currentScreen != null) mc.player.closeHandledScreen();
+                    if (mc.currentScreen != null)
+                        mc.player.closeHandledScreen();
                     toggle();
                     return;
                 }
@@ -206,9 +212,10 @@ public class MapNamer extends Module {
                 startX.set(currentX);
                 startY.set(currentY);
                 state = State.AwaitInteract;
-                info("All maps in inventory named. Progress (x: "+currentX+", y: "+currentY+") saved. " +
+                info("All maps in inventory named. Progress (x: " + currentX + ", y: " + currentY + ") saved. " +
                     "Interact with an anvil with the next batch in the inventory.");
-                if (mc.currentScreen != null) mc.player.closeHandledScreen();
+                if (mc.currentScreen != null)
+                    mc.player.closeHandledScreen();
             } else {
                 ticks = renameDelay.get();
             }
@@ -224,7 +231,7 @@ public class MapNamer extends Module {
     private enum Order {
         Slot,
         ReversedSlot
-        //MapID,
-        //ReversedMapID
+        // MapID,
+        // ReversedMapID
     }
 }
