@@ -24,7 +24,6 @@ import net.minecraft.network.packet.c2s.play.*;
 import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.screen.sync.ItemStackHash;
 import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Pair;
@@ -43,247 +42,247 @@ public class CarpetPrinter extends Module {
     private final SettingGroup sgRender = settings.createGroup("Render");
 
     private final Setting<Integer> linesPerRun = sgGeneral.add(new IntSetting.Builder()
-            .name("lines-per-run")
-            .description("How many lines to place in parallel per run.")
-            .defaultValue(3)
-            .min(1)
-            .sliderRange(1, 5)
-            .build());
+        .name("lines-per-run")
+        .description("How many lines to place in parallel per run.")
+        .defaultValue(3)
+        .min(1)
+        .sliderRange(1, 5)
+        .build());
 
     private final Setting<Double> placeRange = sgGeneral.add(new DoubleSetting.Builder()
-            .name("place-range")
-            .description("The maximum range you can place carpets around yourself.")
-            .defaultValue(4)
-            .min(1)
-            .sliderRange(1, 5)
-            .build());
+        .name("place-range")
+        .description("The maximum range you can place carpets around yourself.")
+        .defaultValue(4)
+        .min(1)
+        .sliderRange(1, 5)
+        .build());
 
     private final Setting<Double> minPlaceDistance = sgGeneral.add(new DoubleSetting.Builder()
-            .name("min-place-distance")
-            .description(
-                    "The minimal distance a placement has to have to the player. Avoids placements colliding with the player.")
-            .defaultValue(0.8)
-            .min(0)
-            .sliderRange(0, 2)
-            .build());
+        .name("min-place-distance")
+        .description(
+            "The minimal distance a placement has to have to the player. Avoids placements colliding with the player.")
+        .defaultValue(0.8)
+        .min(0)
+        .sliderRange(0, 2)
+        .build());
 
     private final Setting<List<Block>> ignoredBlocks = sgGeneral.add(new BlockListSetting.Builder()
-            .name("ignored-Blocks")
-            .description("Blocks types that will not be placed. Useful to print semi-transparent maps.")
-            .defaultValue()
-            .build());
+        .name("ignored-Blocks")
+        .description("Blocks types that will not be placed. Useful to print semi-transparent maps.")
+        .defaultValue()
+        .build());
 
     private final Setting<Integer> placeDelay = sgGeneral.add(new IntSetting.Builder()
-            .name("place-delay")
-            .description("How many milliseconds to wait after placing.")
-            .defaultValue(50)
-            .min(1)
-            .sliderRange(10, 300)
-            .build());
+        .name("place-delay")
+        .description("How many milliseconds to wait after placing.")
+        .defaultValue(50)
+        .min(1)
+        .sliderRange(10, 300)
+        .build());
 
     private final Setting<List<Block>> startBlock = sgGeneral.add(new BlockListSetting.Builder()
-            .name("start-Block")
-            .description("Which block to interact with to start the printing process.")
-            .defaultValue(Blocks.STONE_BUTTON, Blocks.ACACIA_BUTTON, Blocks.BAMBOO_BUTTON, Blocks.BIRCH_BUTTON,
-                    Blocks.CRIMSON_BUTTON, Blocks.DARK_OAK_BUTTON, Blocks.JUNGLE_BUTTON, Blocks.OAK_BUTTON,
-                    Blocks.POLISHED_BLACKSTONE_BUTTON, Blocks.SPRUCE_BUTTON, Blocks.WARPED_BUTTON)
-            .build());
+        .name("start-Block")
+        .description("Which block to interact with to start the printing process.")
+        .defaultValue(Blocks.STONE_BUTTON, Blocks.ACACIA_BUTTON, Blocks.BAMBOO_BUTTON, Blocks.BIRCH_BUTTON,
+            Blocks.CRIMSON_BUTTON, Blocks.DARK_OAK_BUTTON, Blocks.JUNGLE_BUTTON, Blocks.OAK_BUTTON,
+            Blocks.POLISHED_BLACKSTONE_BUTTON, Blocks.SPRUCE_BUTTON, Blocks.WARPED_BUTTON)
+        .build());
 
     private final Setting<Boolean> startCornerSide = sgGeneral.add(new BoolSetting.Builder()
-            .name("start-corner-side")
-            .description("If true, start building map on the north side, south otherwise.")
-            .defaultValue(true)
-            .build());
+        .name("start-corner-side")
+        .description("If true, start building map on the north side, south otherwise.")
+        .defaultValue(true)
+        .build());
 
     private final Setting<Integer> mapFillSquareSize = sgGeneral.add(new IntSetting.Builder()
-            .name("map-fill-square-size")
-            .description("The radius of the square the bot fill walk to explore the map.")
-            .defaultValue(1)
-            .min(0)
-            .sliderRange(0, 50)
-            .build());
+        .name("map-fill-square-size")
+        .description("The radius of the square the bot fill walk to explore the map.")
+        .defaultValue(1)
+        .min(0)
+        .sliderRange(0, 50)
+        .build());
 
     private final Setting<Integer> preRestockDelay = sgGeneral.add(new IntSetting.Builder()
-            .name("pre-restock-delay")
-            .description("How many ticks to wait to take items after opening the chest.")
-            .defaultValue(20)
-            .min(1)
-            .sliderRange(1, 40)
-            .build());
+        .name("pre-restock-delay")
+        .description("How many ticks to wait to take items after opening the chest.")
+        .defaultValue(20)
+        .min(1)
+        .sliderRange(1, 40)
+        .build());
 
     private final Setting<Integer> invActionDelay = sgGeneral.add(new IntSetting.Builder()
-            .name("inventory-action-delay")
-            .description("How many ticks to wait between each inventory action (moving a stack).")
-            .defaultValue(2)
-            .min(1)
-            .sliderRange(1, 40)
-            .build());
+        .name("inventory-action-delay")
+        .description("How many ticks to wait between each inventory action (moving a stack).")
+        .defaultValue(2)
+        .min(1)
+        .sliderRange(1, 40)
+        .build());
 
     private final Setting<Integer> postRestockDelay = sgGeneral.add(new IntSetting.Builder()
-            .name("post-restock-delay")
-            .description("How many ticks to wait after restocking.")
-            .defaultValue(20)
-            .min(1)
-            .sliderRange(1, 40)
-            .build());
+        .name("post-restock-delay")
+        .description("How many ticks to wait after restocking.")
+        .defaultValue(20)
+        .min(1)
+        .sliderRange(1, 40)
+        .build());
 
     private final Setting<Integer> swapDelay = sgGeneral.add(new IntSetting.Builder()
-            .name("swap-delay")
-            .description("How many ticks to wait before swapping into hotbar.")
-            .defaultValue(2)
-            .min(0)
-            .sliderRange(0, 20)
-            .build());
+        .name("swap-delay")
+        .description("How many ticks to wait before swapping into hotbar.")
+        .defaultValue(2)
+        .min(0)
+        .sliderRange(0, 20)
+        .build());
 
     private final Setting<Integer> resetChestCloseDelay = sgGeneral.add(new IntSetting.Builder()
-            .name("reset-chest-close-delay")
-            .description("How many ticks to wait before closing the reset trap chest again.")
-            .defaultValue(10)
-            .min(1)
-            .sliderRange(1, 40)
-            .build());
+        .name("reset-chest-close-delay")
+        .description("How many ticks to wait before closing the reset trap chest again.")
+        .defaultValue(10)
+        .min(1)
+        .sliderRange(1, 40)
+        .build());
 
     private final Setting<Integer> retryInteractTimer = sgGeneral.add(new IntSetting.Builder()
-            .name("retry-interact-timer")
-            .description("How many ticks to wait for chest response before interacting with it again.")
-            .defaultValue(80)
-            .min(1)
-            .sliderRange(20, 200)
-            .build());
+        .name("retry-interact-timer")
+        .description("How many ticks to wait for chest response before interacting with it again.")
+        .defaultValue(80)
+        .min(1)
+        .sliderRange(20, 200)
+        .build());
 
     private final Setting<Boolean> activationReset = sgGeneral.add(new BoolSetting.Builder()
-            .name("activation-reset")
-            .description(
-                    "Resets all values when module is activated or the client relogs. Disable to be able to pause.")
-            .defaultValue(true)
-            .build());
+        .name("activation-reset")
+        .description(
+            "Resets all values when module is activated or the client relogs. Disable to be able to pause.")
+        .defaultValue(true)
+        .build());
 
     private final Setting<SprintMode> sprinting = sgGeneral.add(new EnumSetting.Builder<SprintMode>()
-            .name("sprint-mode")
-            .description("How to sprint.")
-            .defaultValue(SprintMode.NotPlacing)
-            .build());
+        .name("sprint-mode")
+        .description("How to sprint.")
+        .defaultValue(SprintMode.NotPlacing)
+        .build());
 
     private final Setting<Boolean> rotate = sgGeneral.add(new BoolSetting.Builder()
-            .name("rotate")
-            .description("Rotate when placing a block.")
-            .defaultValue(true)
-            .build());
+        .name("rotate")
+        .description("Rotate when placing a block.")
+        .defaultValue(true)
+        .build());
 
     private final Setting<Boolean> breakCarpetAboveReset = sgGeneral.add(new BoolSetting.Builder()
-            .name("break-carpet-above-reset")
-            .description(
-                    "Break the carpet above the reset chest before activating. Useful when interactions trough blocks are not allowed.")
-            .defaultValue(true)
-            .build());
+        .name("break-carpet-above-reset")
+        .description(
+            "Break the carpet above the reset chest before activating. Useful when interactions trough blocks are not allowed.")
+        .defaultValue(true)
+        .build());
 
     private final Setting<Double> checkpointBuffer = sgGeneral.add(new DoubleSetting.Builder()
-            .name("checkpoint-buffer")
-            .description(
-                    "The buffer area of the checkpoints. Larger means less precise walking, but might be desired at higher speeds.")
-            .defaultValue(0.2)
-            .min(0)
-            .sliderRange(0, 1)
-            .build());
+        .name("checkpoint-buffer")
+        .description(
+            "The buffer area of the checkpoints. Larger means less precise walking, but might be desired at higher speeds.")
+        .defaultValue(0.2)
+        .min(0)
+        .sliderRange(0, 1)
+        .build());
 
     private final Setting<Boolean> moveToFinishedFolder = sgGeneral.add(new BoolSetting.Builder()
-            .name("move-to-finished-folder")
-            .description("Moves finished NBT files into the finished-maps folder in the nerv-printer folder.")
-            .defaultValue(true)
-            .build());
+        .name("move-to-finished-folder")
+        .description("Moves finished NBT files into the finished-maps folder in the nerv-printer folder.")
+        .defaultValue(true)
+        .build());
 
     private final Setting<Boolean> customFolderPath = sgGeneral.add(new BoolSetting.Builder()
-            .name("custom-folder-path")
-            .description("Allows to set a custom path to the nbt folder.")
-            .defaultValue(false)
-            .build());
+        .name("custom-folder-path")
+        .description("Allows to set a custom path to the nbt folder.")
+        .defaultValue(false)
+        .build());
 
     public final Setting<String> mapPrinterFolderPath = sgGeneral.add(new StringSetting.Builder()
-            .name("nerv-printer-folder-path")
-            .description("The path to your nerv-printer directory.")
-            .defaultValue("C:\\Users\\(username)\\AppData\\Roaming\\.minecraft\\nerv-printer")
-            .wide()
-            .renderer(StarscriptTextBoxRenderer.class)
-            .visible(customFolderPath::get)
-            .build());
+        .name("nerv-printer-folder-path")
+        .description("The path to your nerv-printer directory.")
+        .defaultValue("C:\\Users\\(username)\\AppData\\Roaming\\.minecraft\\nerv-printer")
+        .wide()
+        .renderer(StarscriptTextBoxRenderer.class)
+        .visible(customFolderPath::get)
+        .build());
 
     private final Setting<Boolean> disableOnFinished = sgGeneral.add(new BoolSetting.Builder()
-            .name("disable-on-finished")
-            .description("Disables the printer when all nbt files are finished.")
-            .defaultValue(true)
-            .build());
+        .name("disable-on-finished")
+        .description("Disables the printer when all nbt files are finished.")
+        .defaultValue(true)
+        .build());
 
     private final Setting<Boolean> debugPrints = sgGeneral.add(new BoolSetting.Builder()
-            .name("debug-prints")
-            .description("Prints additional information.")
-            .defaultValue(false)
-            .build());
+        .name("debug-prints")
+        .description("Prints additional information.")
+        .defaultValue(false)
+        .build());
 
     // Error Handling
 
     private final Setting<Boolean> logErrors = sgError.add(new BoolSetting.Builder()
-            .name("log-errors")
-            .description("Prints warning when a misplacement is detected.")
-            .defaultValue(true)
-            .build());
+        .name("log-errors")
+        .description("Prints warning when a misplacement is detected.")
+        .defaultValue(true)
+        .build());
 
     private final Setting<ErrorAction> errorAction = sgError.add(new EnumSetting.Builder<ErrorAction>()
-            .name("error-action")
-            .description("What to do when a misplacement is detected.")
-            .defaultValue(ErrorAction.Repair)
-            .build());
+        .name("error-action")
+        .description("What to do when a misplacement is detected.")
+        .defaultValue(ErrorAction.Repair)
+        .build());
 
     // Render
 
     private final Setting<Boolean> render = sgRender.add(new BoolSetting.Builder()
-            .name("render")
-            .description("Highlights the selected areas.")
-            .defaultValue(true)
-            .build());
+        .name("render")
+        .description("Highlights the selected areas.")
+        .defaultValue(true)
+        .build());
 
     private final Setting<Boolean> renderChestPositions = sgRender.add(new BoolSetting.Builder()
-            .name("render-chest-positions")
-            .description("Highlights the selected chests.")
-            .defaultValue(true)
-            .visible(render::get)
-            .build());
+        .name("render-chest-positions")
+        .description("Highlights the selected chests.")
+        .defaultValue(true)
+        .visible(render::get)
+        .build());
 
     private final Setting<Boolean> renderOpenPositions = sgRender.add(new BoolSetting.Builder()
-            .name("render-open-positions")
-            .description("Indicate the position the bot will go to in order to interact with the chest.")
-            .defaultValue(true)
-            .visible(render::get)
-            .build());
+        .name("render-open-positions")
+        .description("Indicate the position the bot will go to in order to interact with the chest.")
+        .defaultValue(true)
+        .visible(render::get)
+        .build());
 
     private final Setting<Boolean> renderCheckpoints = sgRender.add(new BoolSetting.Builder()
-            .name("render-checkpoints")
-            .description("Indicate the checkpoints the bot will traverse.")
-            .defaultValue(true)
-            .visible(render::get)
-            .build());
+        .name("render-checkpoints")
+        .description("Indicate the checkpoints the bot will traverse.")
+        .defaultValue(true)
+        .visible(render::get)
+        .build());
 
     private final Setting<Boolean> renderSpecialInteractions = sgRender.add(new BoolSetting.Builder()
-            .name("render-special-interactions")
-            .description("Indicate the position where the reset button and cartography table will be used.")
-            .defaultValue(true)
-            .visible(render::get)
-            .build());
+        .name("render-special-interactions")
+        .description("Indicate the position where the reset button and cartography table will be used.")
+        .defaultValue(true)
+        .visible(render::get)
+        .build());
 
     private final Setting<Double> indicatorSize = sgRender.add(new DoubleSetting.Builder()
-            .name("indicator-size")
-            .description("How big the rendered indicator will be.")
-            .defaultValue(0.2)
-            .min(0)
-            .sliderRange(0, 1)
-            .visible(render::get)
-            .build());
+        .name("indicator-size")
+        .description("How big the rendered indicator will be.")
+        .defaultValue(0.2)
+        .min(0)
+        .sliderRange(0, 1)
+        .visible(render::get)
+        .build());
 
     private final Setting<SettingColor> color = sgRender.add(new ColorSetting.Builder()
-            .name("color")
-            .description("The render color.")
-            .defaultValue(new SettingColor(22, 230, 206, 155))
-            .visible(render::get)
-            .build());
+        .name("color")
+        .description("The render color.")
+        .defaultValue(new SettingColor(22, 230, 206, 155))
+        .visible(render::get)
+        .build());
 
     public CarpetPrinter() {
         super(Addon.CATEGORY, "carpet-printer", "Automatically builds 2D carpet maps from nbt files.");
@@ -371,7 +370,7 @@ public class CarpetPrinter extends Module {
         // Fills restockList with required items
         restockList.clear();
         HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(),
-                availableSlots.size(), map);
+            availableSlots.size(), map);
         for (Block material : invMaterial.keySet()) {
             int oldAmount = requiredItems.remove(material);
             requiredItems.put(material, oldAmount - invMaterial.get(material));
@@ -382,7 +381,7 @@ public class CarpetPrinter extends Module {
                 continue;
             int stacks = (int) Math.ceil((float) requiredItems.get(block) / 64f);
             info("Restocking §a" + stacks + " stacks " + block.getName().getString() + " (" + requiredItems.get(block)
-                    + ")");
+                + ")");
             restockList.add(0, Triple.of(block, stacks, requiredItems.get(block)));
         }
         addClosestRestockCheckpoint();
@@ -460,8 +459,8 @@ public class CarpetPrinter extends Module {
         assert mc.world != null;
         assert mc.player != null;
         if (state == State.SelectingDumpStation && event.packet instanceof PlayerActionC2SPacket packet
-                && (packet.getAction() == PlayerActionC2SPacket.Action.DROP_ITEM
-                        || packet.getAction() == PlayerActionC2SPacket.Action.DROP_ALL_ITEMS)) {
+            && (packet.getAction() == PlayerActionC2SPacket.Action.DROP_ITEM
+            || packet.getAction() == PlayerActionC2SPacket.Action.DROP_ALL_ITEMS)) {
             assert mc.player != null;
             dumpStation = new Pair<>(mc.player.getPos(), new Pair<>(mc.player.getYaw(), mc.player.getPitch()));
             state = State.SelectingFinishedMapChest;
@@ -529,9 +528,9 @@ public class CarpetPrinter extends Module {
                     info("Inventory slots available for building: " + availableSlots);
 
                     HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(),
-                            availableSlots.size(), map);
+                        availableSlots.size(), map);
                     Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils
-                            .getInvInformation(requiredItems, availableSlots);
+                        .getInvInformation(requiredItems, availableSlots);
                     if (!invInformation.getLeft().isEmpty()) {
                         checkpoints.add(0, new Pair<>(dumpStation.getLeft(), new Pair<>("dump", null)));
                     } else {
@@ -602,7 +601,7 @@ public class CarpetPrinter extends Module {
         }
 
         List<State> allowedStates = Arrays.asList(State.AwaitRestockResponse, State.AwaitMapChestResponse,
-                State.AwaitCartographyResponse, State.AwaitFinishedMapChestResponse, State.AwaitResetResponse);
+            State.AwaitCartographyResponse, State.AwaitFinishedMapChestResponse, State.AwaitResetResponse);
         if (allowedStates.contains(state)) {
             toBeHandledInvPacket = packet;
             timeoutTicks = preRestockDelay.get();
@@ -618,7 +617,7 @@ public class CarpetPrinter extends Module {
             case AwaitRestockResponse:
                 interactTimeout = 0;
                 boolean foundMaterials = false;
-                for (int i = 0; i < packet.contents().size() - 36; i++) {
+                for (short i = 0; i < packet.contents().size() - 36; i++) {
                     ItemStack stack = packet.contents().get(i);
 
                     if (restockList.get(0).getMiddle() == 0) {
@@ -636,11 +635,10 @@ public class CarpetPrinter extends Module {
                             state = State.Walking;
                             return;
                         }
-                        invActionPackets.add(new ClickSlotC2SPacket(packet.syncId(), 1, i, 1, SlotActionType.QUICK_MOVE,
-                                new ItemStack(Items.AIR), ItemStackHash.EMPTY));
+                        mc.interactionManager.clickSlot(packet.syncId(), i, 1, SlotActionType.QUICK_MOVE, mc.player);
                         Triple<Block, Integer, Integer> oldTriple = restockList.remove(0);
                         restockList.add(0,
-                                Triple.of(oldTriple.getLeft(), oldTriple.getMiddle() - 1, oldTriple.getRight() - 64));
+                            Triple.of(oldTriple.getLeft(), oldTriple.getMiddle() - 1, oldTriple.getRight() - 64));
                     }
                 }
                 if (!foundMaterials)
@@ -668,7 +666,7 @@ public class CarpetPrinter extends Module {
                 mc.player.getInventory().setSelectedSlot(availableHotBarSlots.get(0));
 
                 Vec3d center = mapCorner.add(map.length / 2 - 1, 0, map[0].length / 2 - 1).toCenterPos();
-                checkpoints.add(new Pair(center, new Pair("fillMap", null)));
+                checkpoints.add(new Pair<>(center, new Pair<>("fillMap", null)));
                 state = State.Walking;
                 break;
             case AwaitCartographyResponse:
@@ -683,8 +681,7 @@ public class CarpetPrinter extends Module {
                     }
                     ItemStack stack = packet.contents().get(slot);
                     if (searchingMap && stack.getItem() == Items.FILLED_MAP) {
-                        Objects.requireNonNull(mc.getNetworkHandler()).sendPacket(new ClickSlotC2SPacket(packet.syncId(), 1, slot, 0,
-                                SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), ItemStackHash.EMPTY));
+                        mc.interactionManager.clickSlot(packet.syncId(), slot, 0, SlotActionType.QUICK_MOVE, mc.player);
                         searchingMap = false;
                     }
                 }
@@ -696,13 +693,11 @@ public class CarpetPrinter extends Module {
                     }
                     ItemStack stack = packet.contents().get(slot);
                     if (!searchingMap && stack.getItem() == Items.GLASS_PANE) {
-                        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.syncId(), 1, slot, 0,
-                                SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), ItemStackHash.EMPTY));
+                        mc.interactionManager.clickSlot(packet.syncId(), slot, 0, SlotActionType.QUICK_MOVE, mc.player);
                         break;
                     }
                 }
-                Objects.requireNonNull(mc.getNetworkHandler()).sendPacket(new ClickSlotC2SPacket(packet.syncId(), 1, 2, 0,
-                        SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), ItemStackHash.EMPTY));
+                mc.interactionManager.clickSlot(packet.syncId(), 2, 0, SlotActionType.QUICK_MOVE, mc.player);
                 checkpoints.add(new Pair<>(finishedMapChest.getRight(), new Pair<>("finishedMapChest", null)));
                 state = State.Walking;
                 break;
@@ -712,8 +707,7 @@ public class CarpetPrinter extends Module {
                 for (int slot = packet.contents().size() - 36; slot < packet.contents().size(); slot++) {
                     ItemStack stack = packet.contents().get(slot);
                     if (stack.getItem() == Items.FILLED_MAP) {
-                        Objects.requireNonNull(mc.getNetworkHandler()).sendPacket(new ClickSlotC2SPacket(packet.syncId(), 1, slot, 0,
-                                SlotActionType.QUICK_MOVE, new ItemStack(Items.AIR), ItemStackHash.EMPTY));
+                        mc.interactionManager.clickSlot(packet.syncId(), slot, 0, SlotActionType.QUICK_MOVE, mc.player);
                         break;
                     }
                 }
@@ -746,12 +740,28 @@ public class CarpetPrinter extends Module {
             targetSlot -= 9;
         }
         targetSlot = packet.contents().size() - 36 + targetSlot;
-        Objects.requireNonNull(mc.getNetworkHandler()).sendPacket(new ClickSlotC2SPacket(packet.syncId(), 1, sourceSlot, 0,
-                SlotActionType.PICKUP, new ItemStack(Items.MAP), ItemStackHash.EMPTY));
-        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.syncId(), 1, targetSlot, 1,
-                SlotActionType.PICKUP, new ItemStack(Items.MAP), ItemStackHash.EMPTY));
-        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.syncId(), 1, sourceSlot, 0,
-                SlotActionType.PICKUP, new ItemStack(Items.AIR), ItemStackHash.EMPTY));
+        mc.interactionManager.clickSlot(
+            packet.syncId(),
+            sourceSlot,
+            0,
+            SlotActionType.PICKUP,
+            mc.player
+        );
+
+        mc.interactionManager.clickSlot(
+            packet.syncId(),
+            targetSlot,
+            1,
+            SlotActionType.PICKUP,
+            mc.player
+        );
+        mc.interactionManager.clickSlot(
+            packet.syncId(),
+            sourceSlot,
+            0,
+            SlotActionType.PICKUP,
+            mc.player
+        );
     }
 
     @EventHandler
@@ -826,15 +836,15 @@ public class CarpetPrinter extends Module {
             int dumpSlot = getDumpSlot();
             if (dumpSlot == -1) {
                 HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(),
-                        availableSlots.size(), map);
+                    availableSlots.size(), map);
                 Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils
-                        .getInvInformation(requiredItems, availableSlots);
+                    .getInvInformation(requiredItems, availableSlots);
                 refillInventory(invInformation.getRight());
                 state = State.Walking;
             } else {
                 if (debugPrints.get())
                     info("Dumping §a" + mc.player.getInventory().getStack(dumpSlot).getName().getString() + " (slot "
-                            + dumpSlot + ")");
+                        + dumpSlot + ")");
                 InvUtils.drop().slot(dumpSlot);
                 timeoutTicks = invActionDelay.get();
             }
@@ -889,8 +899,8 @@ public class CarpetPrinter extends Module {
                                 continue;
                             BlockPos absolutePlacement = placement.add(mapCorner);
                             info("Error detected at: " + absolutePlacement.toShortString() + ". Is: "
-                                    + mc.world.getBlockState(absolutePlacement).getBlock().getName().getString()
-                                    + ". Should be: " + map[placement.getX()][placement.getZ()].getName().getString());
+                                + mc.world.getBlockState(absolutePlacement).getBlock().getName().getString()
+                                + ". Should be: " + map[placement.getX()][placement.getZ()].getName().getString());
                         }
                         previousInvalidPlacements = (ArrayList<BlockPos>) invalidPlacements.clone();
                     }
@@ -899,7 +909,7 @@ public class CarpetPrinter extends Module {
                         checkpoints.clear();
                         if (breakCarpetAboveReset.get()) {
                             checkpoints.add(
-                                    new Pair<>(reset.getRight(), new Pair<>("repair", reset.getLeft().getBlockPos().up())));
+                                new Pair<>(reset.getRight(), new Pair<>("repair", reset.getLeft().getBlockPos().up())));
                         }
                         checkpoints.add(new Pair<>(reset.getRight(), new Pair<>("reset", null)));
                         startedFiles.remove(mapFile);
@@ -912,18 +922,18 @@ public class CarpetPrinter extends Module {
                     return;
                 case "fillMap":
                     Objects.requireNonNull(mc.getNetworkHandler()).sendPacket(new PlayerInteractItemC2SPacket(Hand.MAIN_HAND,
-                            Utils.getNextInteractID(), mc.player.getYaw(), mc.player.getPitch()));
+                        Utils.getNextInteractID(), mc.player.getYaw(), mc.player.getPitch()));
                     if (mapFillSquareSize.get() == 0) {
                         checkpoints.add(0, new Pair<>(cartographyTable.getRight(), new Pair<>("cartographyTable", null)));
                     } else {
                         checkpoints.add(new Pair<>(goal.add(-mapFillSquareSize.get(), 0, mapFillSquareSize.get()),
-                                new Pair<>("sprint", null)));
+                            new Pair<>("sprint", null)));
                         checkpoints.add(new Pair<>(goal.add(mapFillSquareSize.get(), 0, mapFillSquareSize.get()),
-                                new Pair<>("sprint", null)));
+                            new Pair<>("sprint", null)));
                         checkpoints.add(new Pair<>(goal.add(mapFillSquareSize.get(), 0, -mapFillSquareSize.get()),
-                                new Pair<>("sprint", null)));
+                            new Pair<>("sprint", null)));
                         checkpoints.add(new Pair<>(goal.add(-mapFillSquareSize.get(), 0, -mapFillSquareSize.get()),
-                                new Pair<>("sprint", null)));
+                            new Pair<>("sprint", null)));
                         checkpoints.add(new Pair<>(cartographyTable.getRight(), new Pair<>("cartographyTable", null)));
                     }
                     return;
@@ -997,7 +1007,7 @@ public class CarpetPrinter extends Module {
                 try {
                     if (moveToFinishedFolder.get())
                         mapFile.renameTo(new File(mapFile.getParentFile().getAbsolutePath() + File.separator
-                                + "_finished_maps" + File.separator + mapFile.getName()));
+                            + "_finished_maps" + File.separator + mapFile.getName()));
                 } catch (Exception e) {
                     warning("Failed to move map file " + mapFile.getName() + " to finished map folder");
                     e.printStackTrace();
@@ -1022,21 +1032,21 @@ public class CarpetPrinter extends Module {
             AtomicReference<BlockPos> closestPos = new AtomicReference<>();
             final Vec3d currentGoal = goal;
             BlockPos groundedPlayerPos = new BlockPos(mc.player.getBlockPos().getX(), mapCorner.getY(),
-                    mc.player.getBlockPos().getZ());
+                mc.player.getBlockPos().getZ());
             Utils.iterateBlocks(groundedPlayerPos, (int) Math.ceil(placeRange.get()) + 1, 0,
-                    ((blockPos, blockState) -> {
-                        double posDistance = PlayerUtils.distanceTo(blockPos.toCenterPos());
-                        BlockPos relativePos = blockPos.subtract(mapCorner);
-                        if (blockState.isAir() && posDistance <= placeRange.get()
-                                && posDistance > minPlaceDistance.get()
-                                && isWithingMap(blockPos) && map[relativePos.getX()][relativePos.getZ()] != null
-                                && blockPos.getX() <= currentGoal.getX() + linesPerRun.get() - 1
-                                && !placements.contains(blockPos)) {
-                            if (closestPos.get() == null || posDistance < PlayerUtils.distanceTo(closestPos.get())) {
-                                closestPos.set(new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
-                            }
+                ((blockPos, blockState) -> {
+                    double posDistance = PlayerUtils.distanceTo(blockPos.toCenterPos());
+                    BlockPos relativePos = blockPos.subtract(mapCorner);
+                    if (blockState.isAir() && posDistance <= placeRange.get()
+                        && posDistance > minPlaceDistance.get()
+                        && isWithingMap(blockPos) && map[relativePos.getX()][relativePos.getZ()] != null
+                        && blockPos.getX() <= currentGoal.getX() + linesPerRun.get() - 1
+                        && !placements.contains(blockPos)) {
+                        if (closestPos.get() == null || posDistance < PlayerUtils.distanceTo(closestPos.get())) {
+                            closestPos.set(new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ()));
                         }
-                    }));
+                    }
+                }));
 
             if (closestPos.get() != null) {
                 // Stop placing if restocking
@@ -1050,9 +1060,9 @@ public class CarpetPrinter extends Module {
 
     private int getDumpSlot() {
         HashMap<Block, Integer> requiredItems = Utils.getRequiredItems(mapCorner, linesPerRun.get(),
-                availableSlots.size(), map);
+            availableSlots.size(), map);
         Pair<ArrayList<Integer>, HashMap<Block, Integer>> invInformation = Utils.getInvInformation(requiredItems,
-                availableSlots);
+            availableSlots);
         if (invInformation.getLeft().isEmpty()) {
             return -1;
         }
@@ -1070,7 +1080,7 @@ public class CarpetPrinter extends Module {
             if (mc.player.getInventory().getStack(slot).isEmpty())
                 continue;
             Block foundMaterial = Registries.BLOCK
-                    .get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
+                .get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (foundMaterial.equals(material)) {
                 BlockUtils.place(pos, Hand.MAIN_HAND, slot, rotate.get(), 50, true, true, false);
                 if (material == lastSwappedMaterial)
@@ -1082,7 +1092,7 @@ public class CarpetPrinter extends Module {
             if (mc.player.getInventory().getStack(slot).isEmpty() || availableHotBarSlots.contains(slot))
                 continue;
             Block foundMaterial = Registries.BLOCK
-                    .get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
+                .get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (foundMaterial.equals(material)) {
                 lastSwappedMaterial = material;
                 Utils.swapIntoHotbar(slot, availableHotBarSlots);
@@ -1158,7 +1168,7 @@ public class CarpetPrinter extends Module {
         mc.player.setPitch((float) Rotations.getPitch(chestPos.toCenterPos()));
 
         BlockHitResult hitResult = new BlockHitResult(chestPos.toCenterPos(), Utils.getInteractionSide(chestPos),
-                chestPos, false);
+            chestPos, false);
         BlockUtils.interact(hitResult, Hand.MAIN_HAND, true);
         // Set timeout for chest interaction
         interactTimeout = retryInteractTimer.get();
@@ -1178,7 +1188,7 @@ public class CarpetPrinter extends Module {
     private boolean isWithingMap(BlockPos pos) {
         BlockPos relativePos = pos.subtract(mapCorner);
         return relativePos.getX() >= 0 && relativePos.getX() < map.length && relativePos.getZ() >= 0
-                && relativePos.getZ() < map[0].length;
+            && relativePos.getZ() < map[0].length;
     }
 
     private boolean isMapAreaClear() {
@@ -1276,7 +1286,7 @@ public class CarpetPrinter extends Module {
             return;
         event.renderer.box(mapCorner, color.get(), color.get(), ShapeMode.Lines, 0);
         event.renderer.box(mapCorner.getX(), mapCorner.getY(), mapCorner.getZ(), mapCorner.getX() + 128,
-                mapCorner.getY(), mapCorner.getZ() + 128, color.get(), color.get(), ShapeMode.Lines, 0);
+            mapCorner.getY(), mapCorner.getZ() + 128, color.get(), color.get(), ShapeMode.Lines, 0);
 
         ArrayList<Pair<BlockPos, Vec3d>> renderedPairs = new ArrayList<>();
         for (ArrayList<Pair<BlockPos, Vec3d>> list : materialDict.values()) {
@@ -1289,9 +1299,9 @@ public class CarpetPrinter extends Module {
             if (renderOpenPositions.get()) {
                 Vec3d openPos = pair.getRight();
                 event.renderer.box(openPos.x - indicatorSize.get(), openPos.y - indicatorSize.get(),
-                        openPos.z - indicatorSize.get(), openPos.x + indicatorSize.get(),
-                        openPos.y + indicatorSize.get(), openPos.z + indicatorSize.get(), color.get(), color.get(),
-                        ShapeMode.Both, 0);
+                    openPos.z - indicatorSize.get(), openPos.x + indicatorSize.get(),
+                    openPos.y + indicatorSize.get(), openPos.z + indicatorSize.get(), color.get(), color.get(),
+                    ShapeMode.Both, 0);
             }
         }
 
@@ -1299,8 +1309,8 @@ public class CarpetPrinter extends Module {
             for (Pair<Vec3d, Pair<String, BlockPos>> pair : checkpoints) {
                 Vec3d cp = pair.getLeft();
                 event.renderer.box(cp.x - indicatorSize.get(), cp.y - indicatorSize.get(), cp.z - indicatorSize.get(),
-                        cp.getX() + indicatorSize.get(), cp.getY() + indicatorSize.get(),
-                        cp.getZ() + indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
+                    cp.getX() + indicatorSize.get(), cp.getY() + indicatorSize.get(),
+                    cp.getZ() + indicatorSize.get(), color.get(), color.get(), ShapeMode.Both, 0);
             }
         }
 
@@ -1308,39 +1318,39 @@ public class CarpetPrinter extends Module {
             if (reset != null) {
                 event.renderer.box(reset.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines, 0);
                 event.renderer.box(reset.getRight().x - indicatorSize.get(), reset.getRight().y - indicatorSize.get(),
-                        reset.getRight().z - indicatorSize.get(), reset.getRight().getX() + indicatorSize.get(),
-                        reset.getRight().getY() + indicatorSize.get(), reset.getRight().getZ() + indicatorSize.get(),
-                        color.get(), color.get(), ShapeMode.Both, 0);
+                    reset.getRight().z - indicatorSize.get(), reset.getRight().getX() + indicatorSize.get(),
+                    reset.getRight().getY() + indicatorSize.get(), reset.getRight().getZ() + indicatorSize.get(),
+                    color.get(), color.get(), ShapeMode.Both, 0);
             }
             if (cartographyTable != null) {
                 event.renderer.box(cartographyTable.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines,
-                        0);
+                    0);
                 event.renderer.box(cartographyTable.getRight().x - indicatorSize.get(),
-                        cartographyTable.getRight().y - indicatorSize.get(),
-                        cartographyTable.getRight().z - indicatorSize.get(),
-                        cartographyTable.getRight().getX() + indicatorSize.get(),
-                        cartographyTable.getRight().getY() + indicatorSize.get(),
-                        cartographyTable.getRight().getZ() + indicatorSize.get(), color.get(), color.get(),
-                        ShapeMode.Both, 0);
+                    cartographyTable.getRight().y - indicatorSize.get(),
+                    cartographyTable.getRight().z - indicatorSize.get(),
+                    cartographyTable.getRight().getX() + indicatorSize.get(),
+                    cartographyTable.getRight().getY() + indicatorSize.get(),
+                    cartographyTable.getRight().getZ() + indicatorSize.get(), color.get(), color.get(),
+                    ShapeMode.Both, 0);
             }
             if (dumpStation != null) {
                 event.renderer.box(dumpStation.getLeft().x - indicatorSize.get(),
-                        dumpStation.getLeft().y - indicatorSize.get(), dumpStation.getLeft().z - indicatorSize.get(),
-                        dumpStation.getLeft().getX() + indicatorSize.get(),
-                        dumpStation.getLeft().getY() + indicatorSize.get(),
-                        dumpStation.getLeft().getZ() + indicatorSize.get(), color.get(), color.get(), ShapeMode.Both,
-                        0);
+                    dumpStation.getLeft().y - indicatorSize.get(), dumpStation.getLeft().z - indicatorSize.get(),
+                    dumpStation.getLeft().getX() + indicatorSize.get(),
+                    dumpStation.getLeft().getY() + indicatorSize.get(),
+                    dumpStation.getLeft().getZ() + indicatorSize.get(), color.get(), color.get(), ShapeMode.Both,
+                    0);
             }
             if (finishedMapChest != null) {
                 event.renderer.box(finishedMapChest.getLeft().getBlockPos(), color.get(), color.get(), ShapeMode.Lines,
-                        0);
+                    0);
                 event.renderer.box(finishedMapChest.getRight().x - indicatorSize.get(),
-                        finishedMapChest.getRight().y - indicatorSize.get(),
-                        finishedMapChest.getRight().z - indicatorSize.get(),
-                        finishedMapChest.getRight().getX() + indicatorSize.get(),
-                        finishedMapChest.getRight().getY() + indicatorSize.get(),
-                        finishedMapChest.getRight().getZ() + indicatorSize.get(), color.get(), color.get(),
-                        ShapeMode.Both, 0);
+                    finishedMapChest.getRight().y - indicatorSize.get(),
+                    finishedMapChest.getRight().z - indicatorSize.get(),
+                    finishedMapChest.getRight().getX() + indicatorSize.get(),
+                    finishedMapChest.getRight().getY() + indicatorSize.get(),
+                    finishedMapChest.getRight().getZ() + indicatorSize.get(), color.get(), color.get(),
+                    ShapeMode.Both, 0);
             }
         }
     }

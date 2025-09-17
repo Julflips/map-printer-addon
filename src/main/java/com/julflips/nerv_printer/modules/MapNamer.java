@@ -25,70 +25,70 @@ public class MapNamer extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
     private final Setting<Integer> startX = sgGeneral.add(new IntSetting.Builder()
-            .name("start-x")
-            .description("The starting x index from which the enumeration should begin.")
-            .defaultValue(0)
-            .min(0)
-            .sliderRange(0, 10)
-            .build());
+        .name("start-x")
+        .description("The starting x index from which the enumeration should begin.")
+        .defaultValue(0)
+        .min(0)
+        .sliderRange(0, 10)
+        .build());
 
     private final Setting<Integer> endX = sgGeneral.add(new IntSetting.Builder()
-            .name("end-x")
-            .description("The maximum x value of the map.")
-            .defaultValue(0)
-            .min(0)
-            .sliderRange(0, 10)
-            .build());
+        .name("end-x")
+        .description("The maximum x value of the map.")
+        .defaultValue(0)
+        .min(0)
+        .sliderRange(0, 10)
+        .build());
 
     private final Setting<Integer> startY = sgGeneral.add(new IntSetting.Builder()
-            .name("start-y")
-            .description("The starting y index from which the enumeration should begin.")
-            .defaultValue(0)
-            .min(0)
-            .sliderRange(0, 10)
-            .build());
+        .name("start-y")
+        .description("The starting y index from which the enumeration should begin.")
+        .defaultValue(0)
+        .min(0)
+        .sliderRange(0, 10)
+        .build());
 
     private final Setting<Integer> endY = sgGeneral.add(new IntSetting.Builder()
-            .name("end-y")
-            .description("The maximum y value of the map.")
-            .defaultValue(0)
-            .min(0)
-            .sliderRange(0, 10)
-            .build());
+        .name("end-y")
+        .description("The maximum y value of the map.")
+        .defaultValue(0)
+        .min(0)
+        .sliderRange(0, 10)
+        .build());
 
     public final Setting<String> mapName = sgGeneral.add(new StringSetting.Builder()
-            .name("map-name")
-            .description("The name for the map items.")
-            .defaultValue("map-name_")
-            .wide()
-            .renderer(StarscriptTextBoxRenderer.class)
-            .build());
+        .name("map-name")
+        .description("The name for the map items.")
+        .defaultValue("map-name_")
+        .wide()
+        .renderer(StarscriptTextBoxRenderer.class)
+        .build());
 
     public final Setting<String> separator = sgGeneral.add(new StringSetting.Builder()
-            .name("separator")
-            .description("The separator between the x and y index.")
-            .defaultValue("_")
-            .wide()
-            .renderer(StarscriptTextBoxRenderer.class)
-            .build());
+        .name("separator")
+        .description("The separator between the x and y index.")
+        .defaultValue("_")
+        .wide()
+        .renderer(StarscriptTextBoxRenderer.class)
+        .build());
 
     private final Setting<Integer> renameDelay = sgGeneral.add(new IntSetting.Builder()
-            .name("rename-delay")
-            .description("The delay between the renaming of maps in ticks.")
-            .defaultValue(10)
-            .min(1)
-            .sliderRange(1, 20)
-            .build());
+        .name("rename-delay")
+        .description("The delay between the renaming of maps in ticks.")
+        .defaultValue(10)
+        .min(1)
+        .sliderRange(1, 20)
+        .build());
 
     private final Setting<Order> order = sgGeneral.add(new EnumSetting.Builder<Order>()
-            .name("order")
-            .description("The order in which the maps are named. Slot = Hotbar+Inventory left to right.")
-            .defaultValue(Order.Slot)
-            .build());
+        .name("order")
+        .description("The order in which the maps are named. Slot = Hotbar+Inventory left to right.")
+        .defaultValue(Order.Slot)
+        .build());
 
     public MapNamer() {
         super(Addon.CATEGORY, "map-namer",
-                "Automatically names maps in the inventory using the format: Map-Name + X + Separator + Y.");
+            "Automatically names maps in the inventory using the format: Map-Name + X + Separator + Y.");
     }
 
     ArrayList<Integer> mapSlots;
@@ -213,7 +213,7 @@ public class MapNamer extends Module {
                 startY.set(currentY);
                 state = State.AwaitInteract;
                 info("All maps in inventory named. Progress (x: " + currentX + ", y: " + currentY + ") saved. " +
-                        "Interact with an anvil with the next batch in the inventory.");
+                    "Interact with an anvil with the next batch in the inventory.");
                 if (mc.currentScreen != null)
                     mc.player.closeHandledScreen();
             } else {

@@ -11,16 +11,13 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtList;
-import net.minecraft.network.packet.c2s.play.ClickSlotC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
 import net.minecraft.network.packet.s2c.play.InventoryS2CPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.screen.sync.ItemStackHash;
 
 import com.julflips.nerv_printer.mixininterfaces.IClientPlayerInteractionManager;
 import net.minecraft.util.Identifier;
@@ -60,7 +57,7 @@ public class Utils {
     }
 
     public static ArrayList<Pair<BlockPos, Vec3d>> saveAdd(ArrayList<Pair<BlockPos, Vec3d>> list, BlockPos blockPos,
-            Vec3d openPos) {
+                                                           Vec3d openPos) {
         for (Pair<BlockPos, Vec3d> pair : list) {
             if (pair.getLeft().equals(blockPos)) {
                 list.remove(pair);
@@ -91,7 +88,7 @@ public class Utils {
                 continue;
             }
             Block material = Registries.BLOCK
-                    .get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
+                .get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (materials.containsKey(material)) {
                 slots.add(slot);
             }
@@ -100,7 +97,7 @@ public class Utils {
     }
 
     public static HashMap<Block, Integer> getRequiredItems(BlockPos mapCorner, int linesPerRun, int availableSlotsSize,
-            Block[][] map) {
+                                                           Block[][] map) {
         // Calculate the next items to restock
         // Iterate over map. Player has to be able to see the complete map area
         assert mc.world != null;
@@ -137,7 +134,7 @@ public class Utils {
     }
 
     public static Pair<ArrayList<Integer>, HashMap<Block, Integer>> getInvInformation(
-            HashMap<Block, Integer> requiredItems, ArrayList<Integer> availableSlots) {
+        HashMap<Block, Integer> requiredItems, ArrayList<Integer> availableSlots) {
         // Return a list of slots to be dumped and a Hashmap of material-amount we can
         // keep in the inventory
         assert mc.player != null;
@@ -147,7 +144,7 @@ public class Utils {
             if (mc.player.getInventory().getStack(slot).isEmpty())
                 continue;
             Block material = Registries.BLOCK
-                    .get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
+                .get(Identifier.of(mc.player.getInventory().getStack(slot).getItem().toString()));
             if (requiredItems.containsKey(material)) {
                 int requiredAmount = requiredItems.get(material);
                 int requiredModulusAmount = (requiredAmount - (requiredAmount / 64) * 64);
@@ -185,7 +182,7 @@ public class Utils {
                 ChatUtils.info("Created nerv-printer folder in Minecraft directory");
             } else {
                 ChatUtils.warning(
-                        "Failed to create nerv-printer folder in Minecraft directory. Try to disable autoFolderDetection and manually enter a path.");
+                    "Failed to create nerv-printer folder in Minecraft directory. Try to disable autoFolderDetection and manually enter a path.");
                 return false;
             }
         }
@@ -271,7 +268,7 @@ public class Utils {
     }
 
     public static void iterateBlocks(BlockPos startingPos, int horizontalRadius, int verticalRadius,
-            BiConsumer<BlockPos, BlockState> function) {
+                                     BiConsumer<BlockPos, BlockState> function) {
         assert mc.world != null;
         int px = startingPos.getX();
         int py = startingPos.getY();
@@ -297,48 +294,88 @@ public class Utils {
     public static HashMap<Integer, Pair<Block, Integer>> getBlockPalette(NbtList paletteList) {
         HashMap<Integer, Pair<Block, Integer>> blockPaletteDict = new HashMap<>();
         for (int i = 0; i < paletteList.size(); i++) {
-            NbtCompound block = paletteList.getCompound(i);
-            String blockName = block.getString("Name");
-            blockPaletteDict.put(i, new Pair(Registries.BLOCK.get(Identifier.of(blockName)), 0));
+            Optional<NbtCompound> block = paletteList.getCompound(i);
+            if (block.isEmpty()) continue;
+            Optional<String> blockName = block.get().getString("Name");
+            if (blockName.isEmpty()) continue;
+            blockPaletteDict.put(i, new Pair(Registries.BLOCK.get(Identifier.of(blockName.get())), 0));
         }
         return blockPaletteDict;
     }
 
     public static Block[][] generateMapArray(NbtList blockList, HashMap<Integer, Pair<Block, Integer>> blockPalette) {
-        // Calculating the map offset
         int maxHeight = Integer.MIN_VALUE;
         int minX = Integer.MAX_VALUE;
         int maxZ = Integer.MIN_VALUE;
+
         for (int i = 0; i < blockList.size(); i++) {
-            NbtCompound block = blockList.getCompound(i);
-            int blockId = block.getInt("state");
-            if (!blockPalette.containsKey(blockId))
+            Optional<NbtCompound> blockOpt = blockList.getCompound(i);
+            if (blockOpt.isEmpty()) continue;
+
+            NbtCompound block = blockOpt.get();
+
+            Optional<Integer> blockIdOpt = block.getInt("state");
+            if (blockIdOpt.isEmpty() || !blockPalette.containsKey(blockIdOpt.get())) continue;
+
+            Optional<NbtList> posOpt = block.getList("pos");
+            if (posOpt.isEmpty()) continue;
+
+            NbtList pos = posOpt.get();
+            if (pos.size() < 3) continue;
+
+            Optional<Integer> xOpt = pos.getInt(0);
+            Optional<Integer> yOpt = pos.getInt(1);
+            Optional<Integer> zOpt = pos.getInt(2);
+
+            if (xOpt.isEmpty() || yOpt.isEmpty() || zOpt.isEmpty()) {
                 continue;
-            NbtList pos = block.getList("pos", 3);
-            if (pos.getInt(1) > maxHeight)
-                maxHeight = pos.getInt(1);
-            if (pos.getInt(0) < minX)
-                minX = pos.getInt(0);
-            if (pos.getInt(2) > maxZ)
-                maxZ = pos.getInt(2);
+            }
+
+            if (yOpt.get() > maxHeight) {
+                maxHeight = yOpt.get();
+            }
+            if (xOpt.get() < minX) {
+                minX = xOpt.get();
+            }
+            if (zOpt.get() > maxZ) {
+                maxZ = zOpt.get();
+            }
         }
         maxZ -= 127;
 
         // Extracting the map block positions
         Block[][] map = new Block[128][128];
         for (int i = 0; i < blockList.size(); i++) {
-            NbtCompound block = blockList.getCompound(i);
-            if (!blockPalette.containsKey(block.getInt("state")))
+            Optional<NbtCompound> blockOpt = blockList.getCompound(i);
+            if (blockOpt.isEmpty()) continue;
+
+            NbtCompound block = blockOpt.get();
+
+            Optional<Integer> blockIdOpt = block.getInt("state");
+            if (blockIdOpt.isEmpty() || !blockPalette.containsKey(blockIdOpt.get())) continue;
+
+            Optional<NbtList> posOpt = block.getList("pos");
+            if (posOpt.isEmpty()) continue;
+
+            NbtList pos = posOpt.get();
+            if (pos.size() < 3) continue;
+
+            Optional<Integer> xOpt = pos.getInt(0);
+            Optional<Integer> yOpt = pos.getInt(1);
+            Optional<Integer> zOpt = pos.getInt(2);
+
+            if (xOpt.isEmpty() || yOpt.isEmpty() || zOpt.isEmpty()) {
                 continue;
-            NbtList pos = block.getList("pos", 3);
-            int x = pos.getInt(0) - minX;
-            int y = pos.getInt(1);
-            int z = pos.getInt(2) - maxZ;
+            }
+
+            int x = xOpt.get() - minX;
+            int y = yOpt.get();
+            int z = zOpt.get() - maxZ;
             if (y == maxHeight && x < map.length && z < map.length & x >= 0 && z >= 0) {
-                map[x][z] = blockPalette.get(block.getInt("state")).getLeft();
-                int blockId = block.getInt("state");
+                map[x][z] = blockPalette.get(blockIdOpt.get()).getLeft();
+                int blockId = blockIdOpt.get();
                 blockPalette.put(blockId,
-                        new Pair<>(blockPalette.get(blockId).getLeft(), blockPalette.get(blockId).getRight() + 1));
+                    new Pair<>(blockPalette.get(blockId).getLeft(), blockPalette.get(blockId).getRight() + 1));
             }
         }
 
@@ -372,7 +409,7 @@ public class Utils {
     }
 
     public static void getOneItem(int sourceSlot, boolean avoidFirstHotBar, ArrayList<Integer> availableSlots,
-            ArrayList<Integer> availableHotBarSlots, InventoryS2CPacket packet) {
+                                  ArrayList<Integer> availableHotBarSlots, InventoryS2CPacket packet) {
         int targetSlot = availableHotBarSlots.get(0);
         if (avoidFirstHotBar) {
             targetSlot = availableSlots.get(0);
@@ -386,12 +423,9 @@ public class Utils {
             targetSlot -= 9;
         }
         targetSlot = packet.contents().size() - 36 + targetSlot;
-        Objects.requireNonNull(mc.getNetworkHandler()).sendPacket(new ClickSlotC2SPacket(packet.syncId(), 1, sourceSlot, 0,
-                SlotActionType.PICKUP, new ItemStack(Items.MAP), ItemStackHash.EMPTY));
-        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.syncId(), 1, targetSlot, 1,
-                SlotActionType.PICKUP, new ItemStack(Items.MAP), ItemStackHash.EMPTY));
-        mc.getNetworkHandler().sendPacket(new ClickSlotC2SPacket(packet.syncId(), 1, sourceSlot, 0,
-                SlotActionType.PICKUP, new ItemStack(Items.AIR), ItemStackHash.EMPTY));
+        mc.interactionManager.clickSlot(packet.syncId(), sourceSlot, 0, SlotActionType.PICKUP, mc.player);
+        mc.interactionManager.clickSlot(packet.syncId(), targetSlot, 1, SlotActionType.PICKUP, mc.player);
+        mc.interactionManager.clickSlot(packet.syncId(), sourceSlot, 0, SlotActionType.PICKUP, mc.player);
     }
 
     public static File getNextMapFile(File mapFolder, ArrayList<File> startedFiles, boolean areMoved) {
@@ -399,14 +433,14 @@ public class Utils {
         if (files == null)
             return null;
         Arrays.sort(files, Comparator
-                .comparingInt((File f) -> f.getName().length()) // sort by name length
-                .thenComparing(File::getName)); // then sort alphabetically
+            .comparingInt((File f) -> f.getName().length()) // sort by name length
+            .thenComparing(File::getName)); // then sort alphabetically
 
         for (File file : files) {
             // Only check if file was used if not moving to finished folder
             // since they are not in the map folder in that case
             if ((!startedFiles.contains(file) || areMoved) &&
-                    file.isFile() && file.getName().toLowerCase().endsWith(".nbt")) {
+                file.isFile() && file.getName().toLowerCase().endsWith(".nbt")) {
                 startedFiles.add(file);
                 return file;
             }
